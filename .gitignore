@@ -3,3 +3,4 @@ model_checkpoints/
 Training_Data/
 __pycache__/
 simulation/__pycache__/
+*.pem
