@@ -269,6 +269,7 @@ class SimNetworkEngine:
         es_patience=3,
         min_delta=0.001,
         checkpoint_mode="min",
+        model_dir="models",
     ):
         # Check if either tuner or path is provided, but not both
         if (tuner is None and path is None) or (tuner is not None and path is not None):
@@ -309,7 +310,7 @@ class SimNetworkEngine:
             verbose=True,
         )
 
-        hypermodel.save(f"models/{model_name}.keras")
+        hypermodel.save(f"{model_dir}/{model_name}.keras")
 
         return (hypermodel, history)
 
