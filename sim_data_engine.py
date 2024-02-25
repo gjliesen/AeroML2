@@ -207,8 +207,37 @@ class SimDataEngine:
         purpose,
         dir="training_data",
         fname=None,
-        max_in=[10, 90, 90, 12000, 1.001, 1.001, 1.001, 1.001, 60, 10, 20, 12, 12, 12],
-        max_out=[90, 90, 12000, 1.001, 1.001, 1.001, 1.001, 60, 20, 20, 12, 12, 12],
+        input_norm_factors=[
+            10,
+            90,
+            90,
+            12000,
+            1.001,
+            1.001,
+            1.001,
+            1.001,
+            60,
+            10,
+            20,
+            12,
+            12,
+            12,
+        ],
+        output_norm_factors=[
+            90,
+            90,
+            12000,
+            1.001,
+            1.001,
+            1.001,
+            1.001,
+            60,
+            20,
+            20,
+            12,
+            12,
+            12,
+        ],
     ):
         datagen = SimDataEngine()
         if fname is None:
@@ -218,8 +247,8 @@ class SimDataEngine:
         dataset = dataset.map(datagen.map_fn)
         dataset = dataset.map(
             lambda input_state, output_state: (
-                datagen.normalize_data(input_state, max_in),
-                datagen.normalize_data(output_state, max_out),
+                datagen.normalize_data(input_state, input_norm_factors),
+                datagen.normalize_data(output_state, output_norm_factors),
             )
         )
         return dataset

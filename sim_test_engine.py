@@ -14,7 +14,7 @@ class SimTestEngine:
     def __init__(
         self,
         attitude_mode="Euler",
-        input_normalization_limits=[
+        input_norm_factors=[
             10,
             90,
             90,
@@ -30,14 +30,28 @@ class SimTestEngine:
             12,
             12,
         ],
-        output_normalization_limits=[90, 90, 12000, 1, 1, 1, 1, 60, 10, 20, 0.5, 1, 1],
+        output_norm_factors=[
+            90,
+            90,
+            12000,
+            1.001,
+            1.001,
+            1.001,
+            1.001,
+            60,
+            10,
+            20,
+            0.5,
+            1,
+            1,
+        ],
     ):
 
         pio.renderers.default = "browser"
         colors = px.colors.qualitative.Dark24
         self.attitude_mode = attitude_mode
-        self.input_normalization_limits = input_normalization_limits
-        self.output_normalization_limits = output_normalization_limits
+        self.input_norm_factors = input_norm_factors
+        self.output_norm_factors = output_norm_factors
 
         if self.attitude_mode == "Euler":
             self.columns_input = [
@@ -149,13 +163,13 @@ class SimTestEngine:
         # Test Input
         norm_input_arr = np.vstack(tuple(input_data_list))
         true_input_arr = SimDataEngine.normalize_data(
-            norm_input_arr, self.input_normalization_limits, True
+            norm_input_arr, self.input_norm_factors, True
         )
 
         # Test Output
         norm_output_arr = np.vstack(tuple(output_data_list))
         true_output_arr = SimDataEngine.normalize_data(
-            norm_output_arr, self.output_normalization_limits, True
+            norm_output_arr, self.output_norm_factors, True
         )
 
         # Running the inputs through the model
@@ -163,7 +177,7 @@ class SimTestEngine:
 
         # Denormalize out array
         model_output_arr = SimDataEngine.normalize_data(
-            norm_model_output, self.output_normalization_limits, invert=True
+            norm_model_output, self.output_norm_factors, invert=True
         )
 
         # Convert attitude to euler angles if selected
