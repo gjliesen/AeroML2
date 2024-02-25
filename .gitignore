@@ -1,0 +1,5 @@
+data_archive/
+model_checkpoints/
+Training_Data/
+__pycache__/
+simulation/__pycache__/
