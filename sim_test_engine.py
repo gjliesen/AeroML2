@@ -236,4 +236,5 @@ class SimTestEngine:
                 )
         # Displaying the figure
         fig.update_layout(hovermode="x unified", title=title, height=height)
+        fig.write_html(f'{title}.html')
         fig.show()

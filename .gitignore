@@ -1,5 +1,9 @@
 data_archive/
 model_checkpoints/
 Training_Data/
+training_data
 __pycache__/
 simulation/__pycache__/
+.vscode/
+*.pem
+*.pyc
