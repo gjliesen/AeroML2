@@ -12,110 +12,19 @@ from sim_data_engine import SimDataEngine
 
 
 class SimTestEngine:
-    def __init__(
-        self,
-        attitude_mode="Euler",
-        input_norm_factors=[
-            10,
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            10,
-            20,
-            12,
-            12,
-            12,
-        ],
-        output_norm_factors=[
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            10,
-            20,
-            0.5,
-            1,
-            1,
-        ],
-    ):
-
-        pio.renderers.default = "browser"
+    def __init__(self, config, att_mode="Euler", project_name="Test"):
         colors = px.colors.qualitative.Dark24
-        self.attitude_mode = attitude_mode
-        self.input_norm_factors = input_norm_factors
-        self.output_norm_factors = output_norm_factors
+        self.project_name = project_name
+        self.attitude_mode = att_mode
+        self.input_norm_factors = config["DEFAULTS"]["INPUT_NORM_FACTORS"]
+        self.output_norm_factors = config["DEFAULTS"]["OUTPUT_NORM_FACTORS"]
 
         if self.attitude_mode == "Euler":
-            self.columns_input = [
-                "t",
-                "Lat",
-                "Lon",
-                "Alt",
-                "Phi",
-                "Theta",
-                "Psi",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-            self.columns_output = [
-                "Lat",
-                "Lon",
-                "Alt",
-                "Phi",
-                "Theta",
-                "Psi",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
+            self.columns_input = config["DEFAULTS"]["INPUT_COLUMNS_EULER"]
+            self.columns_output = config["DEFAULTS"]["OUTPUT_COLUMNS_EULER"]
         else:
-            self.columns_input = [
-                "t",
-                "Lat",
-                "Lon",
-                "Alt",
-                "q0",
-                "q1",
-                "q2",
-                "q3",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-            self.columns_output = [
-                "Lat",
-                "Lon",
-                "Alt",
-                "q0",
-                "q1",
-                "q2",
-                "q3",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
+            self.columns_input = config["DEFAULTS"]["INPUT_COLUMNS"]
+            self.columns_output = config["DEFAULTS"]["OUTPUT_COLUMNS"]
 
         col_types = ["_Truth", "_Prediction"]
 

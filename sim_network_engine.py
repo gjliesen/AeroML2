@@ -9,28 +9,26 @@ from sim_data_engine import SimDataEngine
 
 
 class SimNetworkEngine:
-    @staticmethod
-    def create_directories(
-        tuner_dir="tuner", model_dir="models", checkpoint_dir="model_checkpoints"
-    ):
-        os.makedirs(tuner_dir, exist_ok=True)
-        os.makedirs(model_dir, exist_ok=True)
-        os.makedirs(checkpoint_dir, exist_ok=True)
+    def __init__(self, config, loss_fn):
+        self.DEFAULTS = config["DEFAULTS"]
+        self.DIRS = config["DIR"]
+        self.NETWORK = config["NETWORK"]
+
+        # Create the directories
 
     @staticmethod
     @keras.saving.register_keras_serializable(name="rmse_loss")
     def root_mean_squared_error(y_true, y_pred):
         return tf.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
-    @staticmethod
-    def choose_distribution_strategy():
+    def choose_distribution_strategy(self):
         # Check for TPU availability
         try:
             tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
             if tpu:
                 tf.config.experimental_connect_to_cluster(tpu)
                 tf.tpu.experimental.initialize_tpu_system(tpu)
-                return tf.distribute.experimental.TPUStrategy(tpu)
+                self.strategy = tf.distribute.experimental.TPUStrategy(tpu)
         except ValueError:
             pass  # No TPU found
 
@@ -39,34 +37,15 @@ class SimNetworkEngine:
         if gpus:
             # Use MirroredStrategy for multiple GPUs
             if len(gpus) > 1:
-                return tf.distribute.MirroredStrategy()
+                self.strategy = tf.distribute.MirroredStrategy()
             # Use default strategy for a single GPU
-            return tf.distribute.get_strategy()
+            self.strategy = tf.distribute.get_strategy()
 
         # Default to None when only a CPU is available
         return None
 
-    @staticmethod
     def get_hypermodel_fn(
-        network_type="DNN",
-        loss_function="mse",
-        activation_functions=["tanh", "sigmoid"],
-        depth_range=[6, 12, 2],
-        width_range=[20, 50, 2],
-        regularization_range=[1e-11, 0.001224, "log"],
-        kernel_initializer_choices=[
-            "glorot_normal",
-            "glorot_uniform",
-            "he_normal",
-            "he_uniform",
-            "random_normal",
-            "random_uniform",
-            "zeros",
-        ],
-        bias_initializer_choices=["zeros", "random_uniform"],
-        learning_rate_choices=[1e-2, 1e-3, 1e-4],
-        optimizer=keras.optimizers.Adam,
-        metrics=["mse"],
+        self,
     ):
 
         # Dummy context manager for use when no strategy is provided
@@ -77,17 +56,19 @@ class SimNetworkEngine:
             def __exit__(self, exc_type, exc_value, traceback):
                 return False
 
-        strategy = SimNetworkEngine.choose_distribution_strategy()
-
-        if network_type == "DNN":
+        if self.DEFAULTS["NETWORK_TYPE"] == "DNN":
 
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
 
-                with strategy.scope() if strategy is not None else dummy_context_mgr():
+                with (
+                    self.strategy.scope()
+                    if self.strategy is not None
+                    else dummy_context_mgr()
+                ):
                     model = keras.Sequential()
                     model.add(
-                        keras.Input(shape=(14,), name="input_layer")
+                        keras.Input(shape=(INPUT_DIM,), name="input_layer")
                     )  # add input layer
                     hp_units = hp.Int(
                         f"dense_width",
@@ -129,7 +110,7 @@ class SimNetworkEngine:
                     # add output layer
                     model.add(
                         keras.layers.Dense(
-                            13,
+                            OUTPUT_DIM,
                             activation=None,
                             name=f"output_layer",
                             kernel_initializer=hp_kernel,
@@ -150,7 +131,7 @@ class SimNetworkEngine:
                     )
                     return model
 
-        if network_type == "RNN":
+        if self.DEFAULTS["NETWORK_TYPE"] == "RNN":
 
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
@@ -160,7 +141,7 @@ class SimNetworkEngine:
 
                     model.add(
                         keras.layers.SimpleRNN(
-                            14, input_shape=(None, 14), name="input_layer"
+                            INPUT_DIM, input_shape=(None, INPUT_DIM), name="input_layer"
                         )
                     )  # add input layer
 
@@ -191,14 +172,13 @@ class SimNetworkEngine:
                     # add hidden layers
                     for i in range(hp_depth - 1):
                         model.add(
-                            keras.layers.Dense(
+                            keras.layers.SimpleRNN(
                                 hp_units,
+                                return_sequences=True,
                                 activation=hp_act,
-                                name=f"hidden_Layer_{i}",
+                                name=f"recurrent_Layer_{i}",
                                 kernel_initializer=hp_kernel,
                                 bias_initializer=hp_bias,
-                                kernel_regularizer=keras.regularizers.l2(hp_reg),
-                                bias_regularizer=keras.regularizers.l2(hp_reg),
                             )
                         )
                     # add output layer
@@ -227,8 +207,8 @@ class SimNetworkEngine:
 
         return hypermodel_fn
 
-    @staticmethod
     def build_tuner(
+        self,
         hypermodel_fn,
         tuner_type,
         project_name,
@@ -239,6 +219,7 @@ class SimNetworkEngine:
         directory="tuner",
         overwrite=False,
     ):
+        os.makedirs(self.DIR["tuner"], exist_ok=True)
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
@@ -337,8 +318,8 @@ class SimNetworkEngine:
         for hyper_param in hyper_params:
             print(hyper_param)
 
-    @staticmethod
     def train_tuned_model(
+        self,
         train_dataset,
         val_dataset,
         epochs=10,
@@ -353,6 +334,8 @@ class SimNetworkEngine:
         checkpoint_mode="min",
         model_dir="models",
     ):
+        os.makedirs(self.DIRS["model"], exist_ok=True)
+        os.makedirs(self.DIRS["checkpoints"], exist_ok=True)
         # Check if either tuner or path is provided, but not both
         if (tuner is None and path is None) or (tuner is not None and path is not None):
             raise ValueError('Specify either "tuner" or "path", but not both.')

@@ -20,6 +20,7 @@ def timeit(f):
 class SimDataEngine:
     def __init__(
         self,
+        config,
         constraints,
         rate,
         time,
@@ -28,6 +29,8 @@ class SimDataEngine:
         title="sim_output",
         shuffle=False,
     ):
+        self.DEFAULTS = config["DEFAULTS"]
+        self.DIR = config["DIR"]
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         self.constraints = constraints
         self.title = title
@@ -221,38 +224,8 @@ class SimDataEngine:
         purpose,
         dir="training_data",
         fname=None,
-        input_norm_factors=[
-            10,
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            10,
-            20,
-            12,
-            12,
-            12,
-        ],
-        output_norm_factors=[
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            20,
-            20,
-            12,
-            12,
-            12,
-        ],
     ):
+        input_norm_factors["DEFAULTS"]
         datagen = SimDataEngine()
         if fname is None:
             fname = SimDataEngine.get_most_recent_dataset(dir, purpose)
