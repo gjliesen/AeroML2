@@ -18,6 +18,7 @@ class SimNetworkEngine:
         os.makedirs(checkpoint_dir, exist_ok=True)
 
     @staticmethod
+    @keras.saving.register_keras_serializable(name="rmse_loss")
     def root_mean_squared_error(y_true, y_pred):
         return tf.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
 
@@ -47,6 +48,7 @@ class SimNetworkEngine:
 
     @staticmethod
     def get_hypermodel_fn(
+        network_type="DNN",
         loss_function="mse",
         activation_functions=["tanh", "sigmoid"],
         depth_range=[6, 12, 2],
@@ -59,6 +61,7 @@ class SimNetworkEngine:
             "he_uniform",
             "random_normal",
             "random_uniform",
+            "zeros",
         ],
         bias_initializer_choices=["zeros", "random_uniform"],
         learning_rate_choices=[1e-2, 1e-3, 1e-4],
@@ -76,72 +79,151 @@ class SimNetworkEngine:
 
         strategy = SimNetworkEngine.choose_distribution_strategy()
 
-        def hypermodel_fn(hp):
-            keras.backend.clear_session()
+        if network_type == "DNN":
 
-            with strategy.scope() if strategy is not None else dummy_context_mgr():
-                model = keras.Sequential()
-                model.add(keras.Input(shape=(14,)))  # add input layer
-                hp_units = hp.Int(
-                    f"dense_width",
-                    min_value=width_range[0],
-                    max_value=width_range[1],
-                    step=width_range[2],
-                )
-                hp_depth = hp.Int(
-                    f"depth",
-                    min_value=depth_range[0],
-                    max_value=depth_range[1],
-                    step=depth_range[2],
-                )
-                hp_act = hp.Choice(f"dense_act_fn", values=activation_functions)
-                hp_reg = hp.Float(
-                    f"reg_param",
-                    min_value=regularization_range[0],
-                    max_value=regularization_range[1],
-                    sampling=regularization_range[2],
-                )
-                hp_kernel = hp.Choice(
-                    f"dense_kernel", values=kernel_initializer_choices
-                )
-                hp_bias = hp.Choice(f"dense_bias", values=bias_initializer_choices)
+            def hypermodel_fn(hp):
+                keras.backend.clear_session()
 
-                # add hidden layers
-                for i in range(hp_depth - 1):
+                with strategy.scope() if strategy is not None else dummy_context_mgr():
+                    model = keras.Sequential()
+                    model.add(
+                        keras.Input(shape=(14,), name="input_layer")
+                    )  # add input layer
+                    hp_units = hp.Int(
+                        f"dense_width",
+                        min_value=width_range[0],
+                        max_value=width_range[1],
+                        step=width_range[2],
+                    )
+                    hp_depth = hp.Int(
+                        f"depth",
+                        min_value=depth_range[0],
+                        max_value=depth_range[1],
+                        step=depth_range[2],
+                    )
+                    hp_act = hp.Choice(f"dense_act_fn", values=activation_functions)
+                    hp_reg = hp.Float(
+                        f"reg_param",
+                        min_value=regularization_range[0],
+                        max_value=regularization_range[1],
+                        sampling=regularization_range[2],
+                    )
+                    hp_kernel = hp.Choice(
+                        f"dense_kernel", values=kernel_initializer_choices
+                    )
+                    hp_bias = hp.Choice(f"dense_bias", values=bias_initializer_choices)
+
+                    # add hidden layers
+                    for i in range(hp_depth - 1):
+                        model.add(
+                            keras.layers.Dense(
+                                hp_units,
+                                activation=hp_act,
+                                name=f"hidden_Layer_{i}",
+                                kernel_initializer=hp_kernel,
+                                bias_initializer=hp_bias,
+                                kernel_regularizer=keras.regularizers.l2(hp_reg),
+                                bias_regularizer=keras.regularizers.l2(hp_reg),
+                            )
+                        )
+                    # add output layer
                     model.add(
                         keras.layers.Dense(
-                            hp_units,
-                            activation=hp_act,
-                            name=f"Layer_{i}",
+                            13,
+                            activation=None,
+                            name=f"output_layer",
                             kernel_initializer=hp_kernel,
                             bias_initializer=hp_bias,
                             kernel_regularizer=keras.regularizers.l2(hp_reg),
                             bias_regularizer=keras.regularizers.l2(hp_reg),
                         )
                     )
-                # add output layer
-                model.add(
-                    keras.layers.Dense(
-                        13,
-                        activation=None,
-                        name=f"output_layer",
-                        kernel_initializer=hp_kernel,
-                        bias_initializer=hp_bias,
-                        kernel_regularizer=keras.regularizers.l2(hp_reg),
-                        bias_regularizer=keras.regularizers.l2(hp_reg),
-                    )
-                )
 
-                # Model Compilation
-                hp_learning_rate = hp.Choice(
-                    "learning_rate", values=learning_rate_choices
-                )
-                model.compile(
-                    optimizer=optimizer(learning_rate=hp_learning_rate),
-                    loss=loss_function,
-                    metrics=metrics,
-                )
-                return model
+                    # Model Compilation
+                    hp_learning_rate = hp.Choice(
+                        "learning_rate", values=learning_rate_choices
+                    )
+                    model.compile(
+                        optimizer=optimizer(learning_rate=hp_learning_rate),
+                        loss=loss_function,
+                        metrics=metrics,
+                    )
+                    return model
+
+        if network_type == "RNN":
+
+            def hypermodel_fn(hp):
+                keras.backend.clear_session()
+
+                with strategy.scope() if strategy is not None else dummy_context_mgr():
+                    model = keras.Sequential()
+
+                    model.add(
+                        keras.layers.SimpleRNN(
+                            14, input_shape=(None, 14), name="input_layer"
+                        )
+                    )  # add input layer
+
+                    hp_units = hp.Int(
+                        f"dense_width",
+                        min_value=width_range[0],
+                        max_value=width_range[1],
+                        step=width_range[2],
+                    )
+                    hp_depth = hp.Int(
+                        f"depth",
+                        min_value=depth_range[0],
+                        max_value=depth_range[1],
+                        step=depth_range[2],
+                    )
+                    hp_act = hp.Choice(f"dense_act_fn", values=activation_functions)
+                    hp_reg = hp.Float(
+                        f"reg_param",
+                        min_value=regularization_range[0],
+                        max_value=regularization_range[1],
+                        sampling=regularization_range[2],
+                    )
+                    hp_kernel = hp.Choice(
+                        f"dense_kernel", values=kernel_initializer_choices
+                    )
+                    hp_bias = hp.Choice(f"dense_bias", values=bias_initializer_choices)
+
+                    # add hidden layers
+                    for i in range(hp_depth - 1):
+                        model.add(
+                            keras.layers.Dense(
+                                hp_units,
+                                activation=hp_act,
+                                name=f"hidden_Layer_{i}",
+                                kernel_initializer=hp_kernel,
+                                bias_initializer=hp_bias,
+                                kernel_regularizer=keras.regularizers.l2(hp_reg),
+                                bias_regularizer=keras.regularizers.l2(hp_reg),
+                            )
+                        )
+                    # add output layer
+                    model.add(
+                        keras.layers.Dense(
+                            13,
+                            activation=None,
+                            name=f"output_layer",
+                            kernel_initializer=hp_kernel,
+                            bias_initializer=hp_bias,
+                            kernel_regularizer=keras.regularizers.l2(hp_reg),
+                            bias_regularizer=keras.regularizers.l2(hp_reg),
+                        )
+                    )
+
+                    # Model Compilation
+                    hp_learning_rate = hp.Choice(
+                        "learning_rate", values=learning_rate_choices
+                    )
+                    model.compile(
+                        optimizer=optimizer(learning_rate=hp_learning_rate),
+                        loss=loss_function,
+                        metrics=metrics,
+                    )
+                    return model
 
         return hypermodel_fn
 
@@ -251,7 +333,7 @@ class SimNetworkEngine:
         if tuner is None:
             tuner = SimNetworkEngine.retrieve_tuner(path)
 
-        hyper_params = tuner.get_best_hyperparameters()
+        hyper_params = tuner.get_best_hyperparameters(num_trials=10)
         for hyper_param in hyper_params:
             print(hyper_param)
 
@@ -283,7 +365,7 @@ class SimNetworkEngine:
             date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
             model_name = f"{date_str}_unnamed"
 
-        hyper_params = tuner.get_best_hyperparameters()[tuner_trial]
+        hyper_params = tuner.get_best_hyperparameters(num_trials=10)[tuner_trial]
 
         hypermodel = tuner.hypermodel.build(hyper_params)
 

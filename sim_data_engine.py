@@ -8,11 +8,9 @@ from datetime import datetime
 
 def timeit(f):
     def timed(*args, **kw):
-
         ts = time.time()
         result = f(*args, **kw)
         te = time.time()
-
         print(f"func:{f.__name__} took: {te-ts} sec")
         return result
 
@@ -20,16 +18,64 @@ def timeit(f):
 
 
 class SimDataEngine:
-    def __init__(self):
-        self.constraints = None
-        self.rate = None
-        self.time = None
-        self.iters = None
-        self.rnd_method = None
-        self.t_vec = None
-        self.pos_0 = None
-        self.shuffle = None
+    def __init__(
+        self,
+        constraints,
+        rate,
+        time,
+        iterations,
+        rnd_method="random",
+        title="sim_output",
+        shuffle=False,
+    ):
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.constraints = constraints
+        self.title = title
+        self.rate = rate
+        self.time = time
+        self.iterations = iterations
+        self.rnd_method = rnd_method
+        self.t_vec = np.arange(0, self.time + self.rate, self.rate)[5:-10]
+        self.shuffle = shuffle
+
+    @timeit
+    def create_dataset(self, purpose="train"):
+        """Primary function, used to call the aircraft simulation and write the output to a tfrecords file, it will either be a test or training dataset, this determines the folder to write the data to
+
+        Args:
+            purpose (str, optional): _description_. Defaults to "train".
+        """
+        print("starting to write records...")
+        if purpose == "Train":
+            dir = "training_data"
+        else:
+            dir = "test_data"
+
+        with tf.io.TFRecordWriter(
+            f"{dir}/{self.date_str}_{self.title}_{purpose}.tfrecord"
+        ) as tfrecord:
+            for iter in self.iterations:
+                self.run_sim(iter)
+                if np.isnan(self.tmp_output).any():
+                    print(self.tmp_input)
+                    continue
+                else:
+                    pass
+                if (iter + 1) % 500 == 0:
+                    print(f"iteration: {iter+1} of {self.iterations}")
+
+    def write_example(tfrecord, input_state, output_state):
+        for i in range(len(input_state)):
+            data = {
+                "input_state": tf.train.Feature(
+                    float_list=tf.train.FloatList(value=input_state[i])
+                ),
+                "output_state": tf.train.Feature(
+                    float_list=tf.train.FloatList(value=output_state[i])
+                ),
+            }
+            example = tf.train.Example(features=tf.train.Features(feature=data))
+        tfrecord.write(example.SerializeToString())
 
     def create_training_set(
         self,
@@ -41,18 +87,10 @@ class SimDataEngine:
         title="sim_output",
         shuffle=True,
     ):
-        self.shuffle = shuffle
-        self.constraints = constraints
-        self.title = title
-        self.rate = rate
-        self.time = time
-        self.iters = iters
-        self.rnd_method = rnd_method
-        self.t_vec = np.arange(0, self.time + self.rate, self.rate)[5:-10]
 
         inputs = []
         outputs = []
-        for iter in range(self.iters):
+        for iter in range(self.iterations):
             self.run_sim(iter)
             if np.isnan(self.tmp_output).any():
                 print(self.tmp_input)
@@ -61,7 +99,7 @@ class SimDataEngine:
                 inputs.append(self.tmp_input)
                 outputs.append(self.tmp_output)
             if (iter + 1) % 500 == 0:
-                print(f"iteration: {iter+1} of {self.iters}")
+                print(f"iteration: {iter+1} of {self.iterations}")
         # Store the numpy versions of the training data in a list
         input_states = np.vstack(tuple(inputs))
         output_states = np.vstack(tuple(outputs))
@@ -129,35 +167,11 @@ class SimDataEngine:
         self.tmp_input = self.tmp_input[indices]
         self.tmp_output = self.tmp_output[indices]
 
-    @timeit
-    def _write_records(self, input_states, output_states, purpose):
-        print("starting to write records...")
-        if (purpose == "Val") or (purpose == "Train"):
-            dir = "Training_Data"
-        else:
-            dir = "test_data"
-        with tf.io.TFRecordWriter(
-            f"{dir}/{self.date_str}_{self.title}_{purpose}.tfrecord"
-        ) as tfrecord:
-            for i in range(len(input_states)):
-                data = {
-                    "input_state": tf.train.Feature(
-                        float_list=tf.train.FloatList(value=input_states[i])
-                    ),
-                    "output_state": tf.train.Feature(
-                        float_list=tf.train.FloatList(value=output_states[i])
-                    ),
-                }
-                example = tf.train.Example(features=tf.train.Features(feature=data))
-                tfrecord.write(example.SerializeToString())
-                if (i + 1) % 10000 == 0:
-                    print(f"{i+1} records written")
-
     @staticmethod
-    def map_fn(serialized_example):
+    def map_fn(serialized_example, input_len=14, output_len=13):
         feature = {
-            "input_state": tf.io.FixedLenFeature([14], tf.float32),
-            "output_state": tf.io.FixedLenFeature([13], tf.float32),
+            "input_state": tf.io.FixedLenFeature([input_len], tf.float32),
+            "output_state": tf.io.FixedLenFeature([output_len], tf.float32),
         }
         example = tf.io.parse_single_example(serialized_example, feature)
         return example["input_state"], example["output_state"]
@@ -212,10 +226,10 @@ class SimDataEngine:
             90,
             90,
             12000,
-            1.001,
-            1.001,
-            1.001,
-            1.001,
+            1,
+            1,
+            1,
+            1,
             60,
             10,
             20,
@@ -227,10 +241,10 @@ class SimDataEngine:
             90,
             90,
             12000,
-            1.001,
-            1.001,
-            1.001,
-            1.001,
+            1,
+            1,
+            1,
+            1,
             60,
             20,
             20,

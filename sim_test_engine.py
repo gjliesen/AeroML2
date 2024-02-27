@@ -1,5 +1,6 @@
 import os
 import random
+from datetime import datetime
 import numpy as np
 import pandas as pd
 import plotly.io as pio
@@ -34,10 +35,10 @@ class SimTestEngine:
             90,
             90,
             12000,
-            1.001,
-            1.001,
-            1.001,
-            1.001,
+            1,
+            1,
+            1,
+            1,
             60,
             10,
             20,
@@ -130,6 +131,7 @@ class SimTestEngine:
                 else:
                     self.line_dicts[full_name] = dict(color=colors[i], dash="dash")
             self.plot_columns.append(subplot)
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
 
     def _convert_quaternions(self, arr, q_start):
         # Ending index of quaternions
@@ -148,7 +150,7 @@ class SimTestEngine:
             files = random.sample(files, k=cnt)
         for fname in files:
             comp_df = self.process_data(f"{test_dir}/{fname}", model_to_test)
-            self.test_plots(comp_df, fname)
+            self.test_plots(comp_df, fname, test_dir)
 
     def process_data(self, fname, model_to_test, dir="test_data"):
         # Looping through and building dataset from tfrecords
@@ -211,7 +213,11 @@ class SimTestEngine:
         # Return dataframe for plotting
         return comp_df
 
-    def test_plots(self, comp_df, title="test", height=6000):
+    def test_plots(
+        self, comp_df, title="test", plot_dir=f"test_data_plots", height=6000
+    ):
+        plot_dir = f"{self.date_str}_{plot_dir}"
+        os.makedirs(plot_dir, exist_ok=True)
         # Initializing subplot
         fig = make_subplots(
             rows=len(self.plot_columns),
@@ -236,5 +242,4 @@ class SimTestEngine:
                 )
         # Displaying the figure
         fig.update_layout(hovermode="x unified", title=title, height=height)
-        fig.write_html(f'{title}.html')
-        fig.show()
+        fig.write_html(f"{plot_dir}/{title}.html")
