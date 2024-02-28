@@ -5,3 +5,5 @@ training_data
 .vscode/
 *.pem
 testing.ipynb
+simulation/__pycache__
+configs/__pycache__
