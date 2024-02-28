@@ -4,6 +4,7 @@ Training_Data/
 training_data
 __pycache__/
 simulation/__pycache__/
+simulation/__pycache__/*.pyc
 .vscode/
 *.pem
 *.pyc
