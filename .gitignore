@@ -5,5 +5,4 @@ training_data
 __pycache__/
 .vscode/
 *.pem
-
 testing.ipynb
