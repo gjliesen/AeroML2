@@ -3,9 +3,7 @@ model_checkpoints/
 Training_Data/
 training_data
 __pycache__/
-simulation/__pycache__/
-simulation/__pycache__/__init__.*.pyc
 .vscode/
 *.pem
-*.pyc
+
 testing.ipynb
