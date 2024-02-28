@@ -7,3 +7,4 @@ simulation/__pycache__/
 .vscode/
 *.pem
 *.pyc
+testing.ipynb
