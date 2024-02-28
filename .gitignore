@@ -1,9 +1,12 @@
+*.pem
 data_archive/
+data/
 model_checkpoints/
 Training_Data/
 training_data
 .vscode/
-*.pem
 testing.ipynb
+testing.py
 simulation/__pycache__
 configs/__pycache__
+test_data_plots/
