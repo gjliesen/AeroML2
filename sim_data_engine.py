@@ -9,13 +9,24 @@ from simulation.aircraft_sim_no_forces import AircraftSimNoForces
 from datetime import datetime
 
 
+def timeit(f):
+    def timed(*args, **kw):
+        ts = time.time()
+        result = f(*args, **kw)
+        te = time.time()
+        print(f"func:{f.__name__} took: {te-ts} sec")
+        return result
+
+    return timed
+
+
 class SimDataEngine:
     def __init__(
         self,
         config_name: str,
         constraints: dict,
         frequency: float,
-        time: int,
+        run_time: int,
         iterations: int,
         test_cases: int,
         length: int,
@@ -28,13 +39,13 @@ class SimDataEngine:
         self.config_name = config_name
         self.constraints = constraints
         self.frequency = frequency
-        self.time = time
+        self.time = run_time
         self.iterations = iterations
         self.test_cases = test_cases
         self.length = length
         self.rnd_method = rnd_method
         self.shuffle = shuffle
-        self.t_vec = np.arange(0, time + frequency, frequency)
+        self.t_vec = np.arange(0, run_time + frequency, frequency)
 
         self.INPUT_DIM = INPUT_DIM
         self.OUTPUT_DIM = OUTPUT_DIM
@@ -59,6 +70,7 @@ class SimDataEngine:
         for case in range(self.test_cases):
             self.write_tfrecords(f"test_{case}")
 
+    @timeit
     def write_tfrecords(self, name: str):
         """Primary function, used to call the aircraft simulation and write the output to a tfrecords file, it will either be a test or training dataset, this determines the folder to write the data to
 
@@ -134,6 +146,7 @@ class SimDataEngine:
         if self.shuffle:
             self.shuffle_data()
 
+    # @timeit
     def concatInputs(self, inits: ArrayLike):
         # Add concatInputs function from old file to stack input instances
         col_concat = np.reshape(inits, (len(inits), 1))
@@ -203,11 +216,11 @@ class SimDataEngine:
         input_norm_factors: list,
         output_norm_factors: list,
         dataset_type: str,
-        dir: str = "training_data",
+        data_dir: str = "training_data",
         fname: str = "",
     ):
         if fname == "":
-            fname = SimDataEngine.get_most_recent_dataset(dir, dataset_type)
+            fname = SimDataEngine.get_most_recent_dataset(data_dir, dataset_type)
 
         dataset = tf.data.TFRecordDataset(fname)
         dataset = dataset.map(SimDataEngine.map_fn)
