@@ -4,9 +4,7 @@ from numba import jit
 
 @jit(nopython=True)
 def cross_product_matrix(vec):
-    cpm = np.array([[0, -vec[2], vec[1]],
-                    [vec[2], 0, -vec[0]],
-                    [-vec[1], vec[0], 0]])
+    cpm = np.array([[0, -vec[2], vec[1]], [vec[2], 0, -vec[0]], [-vec[1], vec[0], 0]])
     return cpm
 
 
@@ -17,22 +15,16 @@ def matrix_vector(x, y):
 
 @jit(nopython=True)
 def get_c_moment(M_surf_W):
-    c_moment = np.array([[0, 0, 0],
-                         [0, 0, -1 * M_surf_W],
-                         [0, 1 * M_surf_W, 0]])
+    c_moment = np.array([[0, 0, 0], [0, 0, -1 * M_surf_W], [0, 1 * M_surf_W, 0]])
     return c_moment
 
 
 @jit(nopython=True)
 def eye_mat(mat1, mat2, mat3, mat4):
-    row1 = np.hstack(
-        (mat1, np.zeros((3, 3)), np.zeros((3, 3)), np.zeros((3, 3))))
-    row2 = np.hstack(
-        (np.zeros((3, 3)), mat2, np.zeros((3, 3)), np.zeros((3, 3))))
-    row3 = np.hstack(
-        (np.zeros((3, 3)), np.zeros((3, 3)), mat3, np.zeros((3, 3))))
-    row4 = np.hstack(
-        (np.zeros((3, 3)), np.zeros((3, 3)), np.zeros((3, 3)), mat4))
+    row1 = np.hstack((mat1, np.zeros((3, 3)), np.zeros((3, 3)), np.zeros((3, 3))))
+    row2 = np.hstack((np.zeros((3, 3)), mat2, np.zeros((3, 3)), np.zeros((3, 3))))
+    row3 = np.hstack((np.zeros((3, 3)), np.zeros((3, 3)), mat3, np.zeros((3, 3))))
+    row4 = np.hstack((np.zeros((3, 3)), np.zeros((3, 3)), np.zeros((3, 3)), mat4))
 
     return np.vstack((row1, row2, row3, row4))
 
@@ -41,36 +33,43 @@ class Surface_Two:
     def __init__(self, arr, n_vec, dx_vec, dx_mat):
         self.surf_arr = arr
 
-        self.contraction_matrix = np.array([[1, 0, 0, 0],
-                                            [1, 0, 0, 0],
-                                            [1, 0, 0, 0],
-                                            [0, 1, 0, 0],
-                                            [0, 1, 0, 0],
-                                            [0, 1, 0, 0],
-                                            [0, 0, 1, 0],
-                                            [0, 0, 1, 0],
-                                            [0, 0, 1, 0],
-                                            [0, 0, 0, 1],
-                                            [0, 0, 0, 1],
-                                            [0, 0, 0, 1]])
+        self.contraction_matrix = np.array(
+            [
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 1],
+                [0, 0, 0, 1],
+                [0, 0, 0, 1],
+            ]
+        )
 
         self.expansion_matrix = self.contraction_matrix.T
 
-        self.first_element_matrix = np.array([[1, 0, 0, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 1, 0, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 1, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 0, 1],
-                                              [0, 0, 0, 0],
-                                              [0, 0, 0, 0]])
+        self.first_element_matrix = np.array(
+            [
+                [1, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 1, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ]
+        )
 
-        self.sum_matrix = np.hstack((np.eye(3), np.eye(3),
-                                     np.eye(3), np.eye(3)))
+        self.sum_matrix = np.hstack((np.eye(3), np.eye(3), np.eye(3), np.eye(3)))
 
         n_drag_vector = np.array([-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0])
         self.n_drag_vector = n_drag_vector.reshape((12, 1))
@@ -105,9 +104,7 @@ class Surface_Two:
         self.calc_parameters()
 
     def calc_parameters(self):
-        C_Moment = np.array([[0, 0, 0],
-                             [0, 0, -1],
-                             [0, 1, 0]])
+        C_Moment = np.array([[0, 0, 0], [0, 0, -1], [0, 1, 0]])
 
         self.c_moment_mat = eye_mat(C_Moment, C_Moment, C_Moment, C_Moment)
 
@@ -118,10 +115,10 @@ class Surface_Two:
         self.Su = self.Cu * self.surf_arr[0::, 1]
         self.SuS = self.Su / self.Sref
 
-    def forces_and_moments(self, q_bar, C_BW, u, v_B_B_BA,
-                           w_B_B_BE_mat):
-        self.w_B_B_BE_mat = eye_mat(w_B_B_BE_mat, w_B_B_BE_mat,
-                                    w_B_B_BE_mat, w_B_B_BE_mat)
+    def forces_and_moments(self, q_bar, C_BW, u, v_B_B_BA, w_B_B_BE_mat):
+        self.w_B_B_BE_mat = eye_mat(
+            w_B_B_BE_mat, w_B_B_BE_mat, w_B_B_BE_mat, w_B_B_BE_mat
+        )
 
         self.C_BW = eye_mat(C_BW, C_BW, C_BW, C_BW)
         self.v_B_B_BA_vec = np.hstack((v_B_B_BA, v_B_B_BA, v_B_B_BA, v_B_B_BA))
@@ -156,8 +153,7 @@ class Surface_Two:
         L_surf_W_exp = np.dot(self.L_surf_W, self.expansion_matrix)
         L_surf_W_exp = L_surf_W_exp.reshape((12, 1))
 
-        F_surf_W = D_surf_W_exp * self.n_drag_vector + \
-                   L_surf_W_exp * self.n_vec
+        F_surf_W = D_surf_W_exp * self.n_drag_vector + L_surf_W_exp * self.n_vec
 
         self.F_surf_B_vec = np.dot(self.C_BW, F_surf_W)
         self.F_surf_B_vec = self.F_surf_B_vec.reshape((12, 1))
@@ -171,16 +167,20 @@ class Surface_Two:
         M_surf_W_exp = np.dot(self.M_surf_W, self.expansion_matrix)
         M_surf_W_exp = M_surf_W_exp.reshape((12, 1))
         C_moment = M_surf_W_exp * self.c_moment_mat
-        M_surf_B_vec = np.dot(C_moment, self.n_vec) + \
-                       np.dot(self.dx_mat, self.F_surf_B_vec)
+        M_surf_B_vec = np.dot(C_moment, self.n_vec) + np.dot(
+            self.dx_mat, self.F_surf_B_vec
+        )
 
         M_surf_B = self.sum_matrix @ M_surf_B_vec
 
         return M_surf_B
 
     def calc_lift_coefficient(self):
-        self.CL = self.surf_arr[0::, 2] + self.CL_a * \
-                  self.a_surf + self.SuS * self.dCLdu * self.u
+        self.CL = (
+            self.surf_arr[0::, 2]
+            + self.CL_a * self.a_surf
+            + self.SuS * self.dCLdu * self.u
+        )
 
     def calc_lift(self):
         self.calc_lift_coefficient()
@@ -188,10 +188,11 @@ class Surface_Two:
         self.L_surf_W = self.L_surf_W.squeeze()
 
     def calc_drag_coefficient(self):
-        self.CD = self.surf_arr[0::, 5] + self.surf_arr[0::, 6] * \
-                  (self.a_surf - self.surf_arr[0::, 7]) ** 2 + \
-                  self.CL ** 2 / (np.pi * self.surf_arr[0::, 3] *
-                                  self.AR)
+        self.CD = (
+            self.surf_arr[0::, 5]
+            + self.surf_arr[0::, 6] * (self.a_surf - self.surf_arr[0::, 7]) ** 2
+            + self.CL**2 / (np.pi * self.surf_arr[0::, 3] * self.AR)
+        )
 
     def calc_drag(self):
         self.calc_drag_coefficient()
@@ -207,8 +208,7 @@ class Surface_Two:
 
     def calc_moment(self):
         self.calc_moment_coefficient()
-        self.M_surf_W = self.CM * self.q_bar * self.Sref * \
-                        self.surf_arr[0::, 0]
+        self.M_surf_W = self.CM * self.q_bar * self.Sref * self.surf_arr[0::, 0]
         self.M_surf_W = self.M_surf_W.squeeze()
 
 
@@ -293,9 +293,13 @@ class Aero_Parameters:
         CMa_s5 = 0
 
         # Aero Control Surface Calculations
-        mass_props_ac = np.array([[90, 0.1, 0.48, 0.01, -0.23, 0.44, 0],
-                                  [90, 0.1, 0.48, 0.01, -0.23, -0.44, 0],
-                                  [13, 0.075, 0.35, 0.002, -0.76, 0, 0.16]])
+        mass_props_ac = np.array(
+            [
+                [90, 0.1, 0.48, 0.01, -0.23, 0.44, 0],
+                [90, 0.1, 0.48, 0.01, -0.23, -0.44, 0],
+                [13, 0.075, 0.35, 0.002, -0.76, 0, 0.16],
+            ]
+        )
 
         # Vertical Stabilizer but ASW28 has rudder so this doesn't need to
         # be separated
@@ -305,9 +309,7 @@ class Aero_Parameters:
         c_s2 = s2_props[1]
         b_s2 = max(s2_props[2], s2_props[3])
 
-        x_s2 = np.array([s2_props[4] + (1 / 4) * s2_props[1],
-                         s2_props[5],
-                         s2_props[6]])
+        x_s2 = np.array([s2_props[4] + (1 / 4) * s2_props[1], s2_props[5], s2_props[6]])
 
         dx_cm2 = x_s2 - self.x_cm
         dx_mat2 = cross_product_matrix(dx_cm2)
@@ -322,9 +324,7 @@ class Aero_Parameters:
         c_s4 = s4_props[1]
         b_s4 = max(s4_props[2], s4_props[3])
 
-        x_s4 = np.array([s4_props[4] + (1 / 4) * s4_props[1],
-                         s4_props[5],
-                         s4_props[6]])
+        x_s4 = np.array([s4_props[4] + (1 / 4) * s4_props[1], s4_props[5], s4_props[6]])
 
         dx_cm4 = x_s4 - self.x_cm
         dx_mat4 = cross_product_matrix(dx_cm4)
@@ -334,21 +334,16 @@ class Aero_Parameters:
         c_s5 = s5_props[1]
         b_s5 = max(s5_props[2], s5_props[3])
 
-        x_s5 = np.array([s5_props[4] + (1 / 4) * s5_props[1],
-                         s5_props[5],
-                         s5_props[6]])
+        x_s5 = np.array([s5_props[4] + (1 / 4) * s5_props[1], s5_props[5], s5_props[6]])
         dx_cm5 = x_s5 - self.x_cm
         dx_mat5 = cross_product_matrix(dx_cm5)
 
         surf_list = [
-            [c_s4, b_s4, CL0_s4, e_s4, i_s4, CD0_s4, CDa_s4, a0_s4, CM0_s4,
-             CMa_s4],
-            [c_s5, b_s5, CL0_s5, e_s5, i_s5, CD0_s5, CDa_s5, a0_s5, CM0_s5,
-             CMa_s5],
-            [c_s2, b_s2, CL0_s2, e_s2, i_s2, CD0_s2, CDa_s2, a0_s2, CM0_s2,
-             CMa_s2],
-            [c_s3, b_s3, CL0_s3, e_s3, i_s3, CD0_s3, CDa_s3, a0_s3, CM0_s3,
-             CMa_s3]]
+            [c_s4, b_s4, CL0_s4, e_s4, i_s4, CD0_s4, CDa_s4, a0_s4, CM0_s4, CMa_s4],
+            [c_s5, b_s5, CL0_s5, e_s5, i_s5, CD0_s5, CDa_s5, a0_s5, CM0_s5, CMa_s5],
+            [c_s2, b_s2, CL0_s2, e_s2, i_s2, CD0_s2, CDa_s2, a0_s2, CM0_s2, CMa_s2],
+            [c_s3, b_s3, CL0_s3, e_s3, i_s3, CD0_s3, CDa_s3, a0_s3, CM0_s3, CMa_s3],
+        ]
 
         surf_arr = np.array(surf_list)
 
@@ -386,54 +381,76 @@ class Aero_Parameters:
         inertias = np.empty((10, 3))
         for i in range(len(self.mass_props[0::, 0])):
             if self.mass_props[i, 1] != 0:
-                inertias[i, 0] = (1 / 12) * \
-                                 self.mass_props[i, 0] * \
-                                 (np.square(self.mass_props[i, 2]) +
-                                  np.square(self.mass_props[i, 3]))
+                inertias[i, 0] = (
+                    (1 / 12)
+                    * self.mass_props[i, 0]
+                    * (
+                        np.square(self.mass_props[i, 2])
+                        + np.square(self.mass_props[i, 3])
+                    )
+                )
 
-                inertias[i, 1] = (1 / 12) * \
-                                 self.mass_props[i, 0] * \
-                                 (np.square(self.mass_props[i, 3]) +
-                                  np.square(self.mass_props[i, 1]))
+                inertias[i, 1] = (
+                    (1 / 12)
+                    * self.mass_props[i, 0]
+                    * (
+                        np.square(self.mass_props[i, 3])
+                        + np.square(self.mass_props[i, 1])
+                    )
+                )
 
-                inertias[i, 2] = (1 / 12) * \
-                                 self.mass_props[i, 0] * \
-                                 (np.square(self.mass_props[i, 1]) +
-                                  np.square(self.mass_props[i, 2]))
+                inertias[i, 2] = (
+                    (1 / 12)
+                    * self.mass_props[i, 0]
+                    * (
+                        np.square(self.mass_props[i, 1])
+                        + np.square(self.mass_props[i, 2])
+                    )
+                )
             else:
-                inertias[i, 0] = (1 / 12) * \
-                                 self.mass_props[i, 0] * \
-                                 (np.square(self.mass_props[i, 2]) +
-                                  np.square(self.mass_props[i, 3]))
+                inertias[i, 0] = (
+                    (1 / 12)
+                    * self.mass_props[i, 0]
+                    * (
+                        np.square(self.mass_props[i, 2])
+                        + np.square(self.mass_props[i, 3])
+                    )
+                )
 
         J = np.empty((3, 3))
-        J[0, 0] = np.sum(inertias[0::, 0]) + \
-                  np.sum(self.mass_props[0::, 0] *
-                         (np.square(self.mass_props[0::, 5] -
-                                    self.x_cm[1]) +
-                          np.square(self.mass_props[0::, 6] -
-                                    self.x_cm[2])))
-        J[1, 1] = np.sum(inertias[0::, 1]) + \
-                  np.sum(self.mass_props[0::, 0] *
-                         (np.square(self.mass_props[0::, 6] -
-                                    self.x_cm[2]) +
-                          np.square(self.mass_props[0::, 4] -
-                                    self.x_cm[0])))
-        J[2, 2] = np.sum(inertias[0::, 2]) + \
-                  np.sum(self.mass_props[0::, 0] *
-                         (np.square(self.mass_props[0::, 4] -
-                                    self.x_cm[0]) +
-                          np.square(self.mass_props[0::, 5] -
-                                    self.x_cm[1])))
-        J[0, 1] = -np.sum(self.mass_props[0::, 0] *
-                          (self.mass_props[0::, 4] *
-                           self.mass_props[0::, 5]))
-        J[0, 2] = -np.sum(self.mass_props[0::, 0] *
-                          (self.mass_props[0::, 6] *
-                           self.mass_props[0::, 4]))
-        J[1, 2] = -np.sum(self.mass_props[0::, 0] *
-                          (self.mass_props[0::, 5] *
-                           self.mass_props[0::, 6]))
+        J[0, 0] = np.sum(inertias[0::, 0]) + np.sum(
+            self.mass_props[0::, 0]
+            * (
+                np.square(self.mass_props[0::, 5] - self.x_cm[1])
+                + np.square(self.mass_props[0::, 6] - self.x_cm[2])
+            )
+        )
+        J[1, 1] = np.sum(inertias[0::, 1]) + np.sum(
+            self.mass_props[0::, 0]
+            * (
+                np.square(self.mass_props[0::, 6] - self.x_cm[2])
+                + np.square(self.mass_props[0::, 4] - self.x_cm[0])
+            )
+        )
+        J[2, 2] = np.sum(inertias[0::, 2]) + np.sum(
+            self.mass_props[0::, 0]
+            * (
+                np.square(self.mass_props[0::, 4] - self.x_cm[0])
+                + np.square(self.mass_props[0::, 5] - self.x_cm[1])
+            )
+        )
+        J[0, 1] = -np.sum(
+            self.mass_props[0::, 0]
+            * (self.mass_props[0::, 4] * self.mass_props[0::, 5])
+        )
+        J[0, 2] = -np.sum(
+            self.mass_props[0::, 0]
+            * (self.mass_props[0::, 6] * self.mass_props[0::, 4])
+        )
+        J[1, 2] = -np.sum(
+            self.mass_props[0::, 0]
+            * (self.mass_props[0::, 5] * self.mass_props[0::, 6])
+        )
 
         J[0, 1] = -1 * J[0, 1]
         J[0, 2] = -1 * J[0, 2]
@@ -445,12 +462,11 @@ class Aero_Parameters:
         self.J = J
         self.J_inv = np.linalg.pinv(J)
 
-    def get_forces_and_moments(self, v_B_B_BA, v_inf, C_BW, u,
-                               w_B_B_BE):
+    def get_forces_and_moments(self, v_B_B_BA, v_inf, C_BW, u, w_B_B_BE):
         F = np.array([0, 0, 0])
         M = np.array([0, 0, 0])
 
-        q_bar = 0.5 * self.rho * v_inf ** 2
+        q_bar = 0.5 * self.rho * v_inf**2
         w_B_B_BE_mat = cross_product_matrix(w_B_B_BE)
 
         # for i in range(len(self.surfs)):
@@ -460,8 +476,7 @@ class Aero_Parameters:
         #     F = F + self.surfs[i].get_surface_forces()
         #     M = M + self.surfs[i].get_surface_moments()
 
-        Ft, Mt = self.surfs2.forces_and_moments(q_bar, C_BW, u, v_B_B_BA,
-                                                w_B_B_BE_mat)
+        Ft, Mt = self.surfs2.forces_and_moments(q_bar, C_BW, u, v_B_B_BA, w_B_B_BE_mat)
 
         #
         # if F.all() == Ft.all():
@@ -470,6 +485,7 @@ class Aero_Parameters:
         # if M.all() == Mt.all():
         #     print("Holy Cow!")
         return Ft.squeeze(), Mt.squeeze()
+
 
 # Start with a derivative controller, look at attitude/omega
 # Best way to show benefit of controller is to start system out in trim

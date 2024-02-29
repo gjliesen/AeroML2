@@ -9,8 +9,8 @@ import pyproj
 from .aero_parameters import Aero_Parameters
 
 transformer = pyproj.Transformer.from_crs(
-    {"proj": 'geocent', "ellps": 'WGS84', "datum": 'WGS84'},
-    {"proj": 'latlong', "ellps": 'WGS84', "datum": 'WGS84'},
+    {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"},
+    {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
 )
 
 
@@ -59,9 +59,7 @@ def quat_DCM(q):
     x31 = 2 * (q1q3 + q0q2)
     x32 = 2 * (q2q3 - q0q1)
 
-    C_BA = np.array([[x11, x12, x13],
-                     [x21, x22, x23],
-                     [x31, x32, x33]])
+    C_BA = np.array([[x11, x12, x13], [x21, x22, x23], [x31, x32, x33]])
 
     return C_BA
 
@@ -108,9 +106,7 @@ def euler_to_dcm(phi, theta, psi):
     x_32 = -sin(phi) * cos(psi) + cos(phi) * sin(theta) * sin(psi)
     x_33 = cos(phi) * cos(theta)
 
-    c_n_b = np.array([[x_11, x_12, x_13],
-                      [x_21, x_22, x_23],
-                      [x_31, x_32, x_33]]).T
+    c_n_b = np.array([[x_11, x_12, x_13], [x_21, x_22, x_23], [x_31, x_32, x_33]]).T
 
     return c_n_b
 
@@ -130,27 +126,22 @@ def ecef_to_ned_matrix(lat, lon):
     x_32 = 0
     x_33 = -sin(lat)
 
-    C_EN = np.array([[x_11, x_12, x_13],
-                     [x_21, x_22, x_23],
-                     [x_31, x_32, x_33]])
+    C_EN = np.array([[x_11, x_12, x_13], [x_21, x_22, x_23], [x_31, x_32, x_33]])
 
     return C_EN
 
 
 @jit
 def get_w_B_B_BE_matrix(P, Q, R):
-    w_B_B_BE_matrix = np.array([[0, -P, -Q, -R],
-                                [P, 0, R, -Q],
-                                [Q, -R, 0, P],
-                                [R, Q, -P, 0]])
+    w_B_B_BE_matrix = np.array(
+        [[0, -P, -Q, -R], [P, 0, R, -Q], [Q, -R, 0, P], [R, Q, -P, 0]]
+    )
     return w_B_B_BE_matrix
 
 
 @jit
 def cross_product_matrix(vec):
-    cpm = np.array([[0, -vec[2], vec[1]],
-                    [vec[2], 0, -vec[0]],
-                    [-vec[1], vec[0], 0]])
+    cpm = np.array([[0, -vec[2], vec[1]], [vec[2], 0, -vec[0]], [-vec[1], vec[0], 0]])
     return cpm
 
 
@@ -161,9 +152,13 @@ def body_to_wind_matrix(alpha, beta):
     casb = cos(alpha) * sin(beta)
     sasb = sin(alpha) * sin(beta)
 
-    C_BW = np.array([[cacb, -casb, -sin(alpha)],
-                     [sin(beta), cos(beta), 0],
-                     [sacb, -sasb, cos(alpha)]])
+    C_BW = np.array(
+        [
+            [cacb, -casb, -sin(alpha)],
+            [sin(beta), cos(beta), 0],
+            [sacb, -sasb, cos(alpha)],
+        ]
+    )
 
     return C_BW
 
@@ -180,9 +175,7 @@ def h_theta_matrix(phi, theta):
     x_32 = sin(phi) / cos(theta)
     x_33 = cos(phi) / cos(theta)
 
-    h_theta = np.array([[x_11, x_12, x_13],
-                        [x_21, x_22, x_23],
-                        [x_31, x_32, x_33]])
+    h_theta = np.array([[x_11, x_12, x_13], [x_21, x_22, x_23], [x_31, x_32, x_33]])
 
     return h_theta
 
@@ -190,26 +183,28 @@ def h_theta_matrix(phi, theta):
 # noinspection DuplicatedCode
 class Aircraft_Sim:
     # noinspection SpellCheckingInspection
-    def __init__(self, x_E_E_BE_0, att_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0,
-                 Fext_B_0, Mext_B_0, g_n):
+    def __init__(
+        self, x_E_E_BE_0, att_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0, Fext_B_0, Mext_B_0, g_n
+    ):
         # noinspection SpellCheckingInspection
         """
-                takes initial aircraft states and runs 6DOF simulation
+        takes initial aircraft states and runs 6DOF simulation
 
-                :param x_E_E_BE_0: initial position of aircraft
-                :param att_B_B_BN_0: initial attitude of aircraft
-                :param v_E_B_BE_0: initial velocity of aircraft
-                :param w_B_B_BE_0: initial body rates of aircraft
-                :param Fext_B_0: initial external forces of aircraft
-                :param Mext_B_0: initial external moments of aircraft
-                :param g_n: gravity
-                """
+        :param x_E_E_BE_0: initial position of aircraft
+        :param att_B_B_BN_0: initial attitude of aircraft
+        :param v_E_B_BE_0: initial velocity of aircraft
+        :param w_B_B_BE_0: initial body rates of aircraft
+        :param Fext_B_0: initial external forces of aircraft
+        :param Mext_B_0: initial external moments of aircraft
+        :param g_n: gravity
+        """
         # Initial Values
         phi, theta, psi = att_B_B_BN_0
         attQuat_B_B_BN_0 = euler_to_quat(phi, theta, psi)
 
-        self.states_init = np.hstack((x_E_E_BE_0, attQuat_B_B_BN_0,
-                                      v_E_B_BE_0, w_B_B_BE_0))
+        self.states_init = np.hstack(
+            (x_E_E_BE_0, attQuat_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0)
+        )
         self.init_step = True
         self.tk_flag = True
         self.lla_flag = True
@@ -273,8 +268,9 @@ class Aircraft_Sim:
         Calculates the V_inf, AOA, and side slip of aircraft at each time step
         :return:
         """
-        self.v_b_a = self.v_E_B_BE - \
-                     matrix_vector(self.C_BN, self.v_a_n.astype(np.float64))
+        self.v_b_a = self.v_E_B_BE - matrix_vector(
+            self.C_BN, self.v_a_n.astype(np.float64)
+        )
 
         self.v_inf = np.linalg.norm(self.v_b_a)
         if np.isnan(self.v_inf):
@@ -285,9 +281,9 @@ class Aircraft_Sim:
             self.alpha = np.arctan2(self.v_b_a[2], self.v_b_a[0])
             self.beta = np.arcsin(self.v_b_a[1] / self.v_inf)
 
-        w_B_BA = np.array([self.v_inf,
-                           self.alpha * (180 / np.pi),
-                           self.beta * (180 / np.pi)])
+        w_B_BA = np.array(
+            [self.v_inf, self.alpha * (180 / np.pi), self.beta * (180 / np.pi)]
+        )
         self.w_B_BA_states.append(w_B_BA)
 
     def translational_kinematics(self):
@@ -303,10 +299,9 @@ class Aircraft_Sim:
         # We currently have the aircraft position in cartesian coordinates
         # we need to convert this to Polar to get the new DCM.
 
-        lat, lon, alt = transformer.transform(self.x_E_E_BE[0],
-                                              self.x_E_E_BE[1],
-                                              self.x_E_E_BE[2],
-                                              radians=False)
+        lat, lon, alt = transformer.transform(
+            self.x_E_E_BE[0], self.x_E_E_BE[1], self.x_E_E_BE[2], radians=False
+        )
 
         # lat, lon, alt = navpy.ecef2lla(self.x_E_E_BE, 'deg')
         p_E_E_BE = np.array([lat, lon, alt])
@@ -360,9 +355,11 @@ class Aircraft_Sim:
 
         w_B_B_BE_mat = cross_product_matrix(self.w_B_B_BE)
 
-        vDot_E_B_BE = (1 / self.aircraft.mass) * self.Fext_B + \
-                      matrix_vector(self.C_BN, self.g_n) - \
-                      matrix_vector(w_B_B_BE_mat, self.v_E_B_BE)
+        vDot_E_B_BE = (
+            (1 / self.aircraft.mass) * self.Fext_B
+            + matrix_vector(self.C_BN, self.g_n)
+            - matrix_vector(w_B_B_BE_mat, self.v_E_B_BE)
+        )
 
         return vDot_E_B_BE
 
@@ -377,8 +374,9 @@ class Aircraft_Sim:
         """
         w_B_B_BE_mat = cross_product_matrix(self.w_B_B_BE)
 
-        temp = matrix_vector(w_B_B_BE_mat,
-                             (matrix_vector(self.aircraft.J, self.w_B_B_BE)))
+        temp = matrix_vector(
+            w_B_B_BE_mat, (matrix_vector(self.aircraft.J, self.w_B_B_BE))
+        )
 
         wDot_B_B_BE = matrix_vector(self.aircraft.J_inv, (self.Mext_B - temp))
 
@@ -401,8 +399,7 @@ class Aircraft_Sim:
         self.v_E_B_BE = y[7:10]
         self.w_B_B_BE = y[10:13]
 
-        self.attQuat_B_B_BN = self.attQuat_B_B_BN / np.linalg.norm(
-            self.attQuat_B_B_BN)
+        self.attQuat_B_B_BN = self.attQuat_B_B_BN / np.linalg.norm(self.attQuat_B_B_BN)
 
         # DCM Update:
         self.C_BN = quat_DCM(self.attQuat_B_B_BN)
@@ -418,24 +415,22 @@ class Aircraft_Sim:
         # Pitch Damper
         att_B_B_BN = quat_to_euler(self.attQuat_B_B_BN)
 
-        delta_e = self.k_d_roll * self.w_B_B_BE[1] + \
-                  self.k_p_pitch * (att_B_B_BN[1] - self.theta_trim) + \
-                  self.delta_e_trim
+        delta_e = (
+            self.k_d_roll * self.w_B_B_BE[1]
+            + self.k_p_pitch * (att_B_B_BN[1] - self.theta_trim)
+            + self.delta_e_trim
+        )
 
         # Roll Damper
-        delta_R = self.k_d_roll * self.w_B_B_BE[0] + \
-                  self.k_p_roll * att_B_B_BN[0]
+        delta_R = self.k_d_roll * self.w_B_B_BE[0] + self.k_p_roll * att_B_B_BN[0]
 
         delta_L = -delta_R
 
         deflections = np.array([delta_R, delta_L, delta_e, 0])
 
-        self.Fext_B, self.Mext_B = \
-            self.aircraft.get_forces_and_moments(self.v_b_a,
-                                                 self.v_inf,
-                                                 self.C_BW,
-                                                 deflections,
-                                                 self.w_B_B_BE)
+        self.Fext_B, self.Mext_B = self.aircraft.get_forces_and_moments(
+            self.v_b_a, self.v_inf, self.C_BW, deflections, self.w_B_B_BE
+        )
 
         # Equations of Motion:
         xDot_E_E_BE = self.translational_kinematics()
@@ -444,12 +439,12 @@ class Aircraft_Sim:
         wDot_B_B_BE = self.rotational_dynamics()
 
         # Final State Matrix
-        output_states = np.hstack((xDot_E_E_BE, attQuatDot_B_B_BN,
-                                   vDot_E_B_BE, wDot_B_B_BE))
+        output_states = np.hstack(
+            (xDot_E_E_BE, attQuatDot_B_B_BN, vDot_E_B_BE, wDot_B_B_BE)
+        )
         return output_states
 
-    def run_simulation(self, time, k_d_pitch, k_p_pitch, k_d_roll,
-                       k_p_roll, v_a_n):
+    def run_simulation(self, time, k_d_pitch, k_p_pitch, k_d_roll, k_p_roll, v_a_n):
         # Setting Control Gains
         self.k_d_pitch = k_d_pitch
         self.k_p_pitch = k_p_pitch
@@ -460,8 +455,9 @@ class Aircraft_Sim:
         # Defining time array
         self.time = np.arange(0, time, 0.01)
 
-        result = solve_ivp(self.aircraft_EOM, t_span=[0, time],
-                           t_eval=self.time, y0=self.states_init)
+        result = solve_ivp(
+            self.aircraft_EOM, t_span=[0, time], t_eval=self.time, y0=self.states_init
+        )
 
         state_sol = result.y.T
         self.x_E_E_BE_states = state_sol[0::, 0:3]
@@ -488,7 +484,7 @@ class Aircraft_Sim:
             "v_E_B_BE": self.v_E_B_BE_states,
             "w_B_B_BE": self.w_B_B_BE_states,
             "p_E_E_BE": self.p_E_E_BE_states,
-            "w_B_BA": self.w_B_BA_states
+            "w_B_BA": self.w_B_BA_states,
         }
 
         x_dict = {
@@ -497,7 +493,7 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_x",
             "w_B_B_BE": "P",
             "p_E_E_BE": "Lat",
-            "w_B_BA": "V_inf"
+            "w_B_BA": "V_inf",
         }
 
         y_dict = {
@@ -506,7 +502,7 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_y",
             "w_B_B_BE": "Q",
             "p_E_E_BE": "Lon",
-            "w_B_BA": "Alpha"
+            "w_B_BA": "Alpha",
         }
 
         z_dict = {
@@ -515,7 +511,7 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_z",
             "w_B_B_BE": "R",
             "p_E_E_BE": "Alt",
-            "w_B_BA": "Beta"
+            "w_B_BA": "Beta",
         }
 
         states = state_dict[state]
@@ -528,16 +524,13 @@ class Aircraft_Sim:
             time = self.solver_time
         else:
             time = self.time
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 0],
-                                   name=x_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0::, 0], name=x_dict[state]))
 
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 1],
-                                   name=y_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0::, 1], name=y_dict[state]))
 
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 2],
-                                   name=z_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0::, 2], name=z_dict[state]))
 
-        html_title = state + '_' + test_case + '.html'
+        html_title = state + "_" + test_case + ".html"
         fig.write_html(html_title)
         fig.show()
 
@@ -552,7 +545,7 @@ class Aircraft_Sim:
             "v_E_B_BE": self.v_E_B_BE_states,
             "w_B_B_BE": self.w_B_B_BE_states,
             "p_E_E_BE": self.p_E_E_BE_states,
-            "w_B_BA": self.w_B_BA_states
+            "w_B_BA": self.w_B_BA_states,
         }
 
         x_dict = {
@@ -561,7 +554,7 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_x",
             "w_B_B_BE": "P",
             "p_E_E_BE": "Lat",
-            "w_B_BA": "V_inf"
+            "w_B_BA": "V_inf",
         }
 
         y_dict = {
@@ -570,7 +563,7 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_y",
             "w_B_B_BE": "Q",
             "p_E_E_BE": "Lon",
-            "w_B_BA": "Alpha"
+            "w_B_BA": "Alpha",
         }
 
         z_dict = {
@@ -579,15 +572,18 @@ class Aircraft_Sim:
             "v_E_B_BE": "V_z",
             "w_B_B_BE": "R",
             "p_E_E_BE": "Alt",
-            "w_B_BA": "Beta"
+            "w_B_BA": "Beta",
         }
 
         state_list = ["x_E_E_BE", "att_B_B_BN", "v_E_B_BE", "w_B_B_BE"]
 
-        fig = make_subplots(rows=4, cols=1,
-                            shared_xaxes=True,
-                            vertical_spacing=0.02,
-                            subplot_titles=state_list)
+        fig = make_subplots(
+            rows=4,
+            cols=1,
+            shared_xaxes=True,
+            vertical_spacing=0.02,
+            subplot_titles=state_list,
+        )
 
         i = 1
 
@@ -600,24 +596,22 @@ class Aircraft_Sim:
             else:
                 time = self.time
 
-            fig.add_trace(go.Scattergl(x=time, y=states[0::, 0],
-                                       name=x_dict[state]),
-                          row=i, col=1)
+            fig.add_trace(
+                go.Scattergl(x=time, y=states[0::, 0], name=x_dict[state]), row=i, col=1
+            )
 
-            fig.add_trace(go.Scattergl(x=time, y=states[0::, 1],
-                                       name=y_dict[state]),
-                          row=i, col=1)
+            fig.add_trace(
+                go.Scattergl(x=time, y=states[0::, 1], name=y_dict[state]), row=i, col=1
+            )
 
-            fig.add_trace(go.Scattergl(x=time, y=states[0::, 2],
-                                       name=z_dict[state]),
-                          row=i, col=1)
+            fig.add_trace(
+                go.Scattergl(x=time, y=states[0::, 2], name=z_dict[state]), row=i, col=1
+            )
 
             i += 1
 
-        fig.update_layout(hovermode='x unified', title=title,
-                          height=1000)
+        fig.update_layout(hovermode="x unified", title=title, height=1000)
         fig.show()
         # fig.write_image("C:/Users/gjlie/PycharmProjects/AME_532a_Optimized"
         #                 "/Plots/" +
         #                 title + ".jpg")
-
