@@ -7,7 +7,7 @@
  "metrics": [
   "mse"
  ],
- "loss_fn": "mse",
+ "loss_fn": "rmse",
  "model_dir": "models",
  "checkpoints_dir": "model_checkpoints",
  "tuner_dir": "tuner",
