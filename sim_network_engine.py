@@ -84,7 +84,7 @@ class SimNetworkEngine:
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
 
-                with strategy:
+                with strategy():
                     model = keras.Sequential()
                     model.add(
                         keras.Input(shape=(self.INPUT_DIM,), name="input_layer")
@@ -154,7 +154,7 @@ class SimNetworkEngine:
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
 
-                with strategy:
+                with strategy():
                     model = keras.Sequential()
 
                     model.add(
