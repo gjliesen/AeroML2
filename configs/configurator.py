@@ -36,8 +36,9 @@ MAXIMUMS_EULER = {
 class Configurator:
     def __init__(self, config_name: str):
         self.config = dict(
-            name=config_name,
+            config_name=config_name,
         )
+        self.fname = f"{config_name}.json"
 
     def configure(self, network=None, dirs=None, tuner=None, data=None):
         if network is not None:
@@ -61,6 +62,6 @@ class Configurator:
     def set_data(self, data):
         self.config.update(data)
 
-    def write(self):
-        with open(self.config["fname"], "w") as outfile:
-            json.dump(self.config, outfile)
+    def write(self, indent=1):
+        with open(self.fname, "w") as outfile:
+            json.dump(self.config, outfile, indent=indent)

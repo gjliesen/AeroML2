@@ -1,1 +1,53 @@
-{"name": "dnn_default", "fname": "dnn_default.json", "path": "configs/dnn_default.json", "INPUT_FEATURES": ["Time", "Lat", "Lon", "Alt", "q0", "q1", "q2", "q3", "Vx", "Vy", "Vz", "P", "Q", "R"], "INPUT_FEATURES_EULER": ["Time", "Lat", "Lon", "Alt", "Phi", "Theta", "Psi", "Vx", "Vy", "Vz", "P", "Q", "R"], "INPUT_NORM_FACTORS": [10, 90, 90, 12000, 1, 1, 1, 1, 60, 20, 20, 12, 12, 12], "INPUT_DIM": 14, "OUTPUT_FEATURES": ["Lat", "Lon", "Alt", "q0", "q1", "q2", "q3", "Vx", "Vy", "Vz", "P", "Q", "R"], "OUTPUT_FEATURES_EULER": ["Lat", "Lon", "Alt", "Phi", "Theta", "Psi", "Vx", "Vy", "Vz", "P", "Q", "R"], "OUTPUT_NORM_FACTORS": [90, 90, 12000, 1, 1, 1, 1, 60, 20, 20, 12, 12, 12], "OUTPUT_DIM": 13, "NETWORK_TYPE": "DNN", "optimizer": "adam", "metrics": ["mse"], "model_dir": "models", "checkpoints_dir": "model_checkpoints", "tuner_dir": "tuner", "train_dir": "training_data", "test_dir": "test_data", "activation_functions": ["tanh", "sigmoid"], "depth_range": {"min": 6, "max": 12, "step": 2}, "width_range": [20, 50, 2], "regularization_range": [1e-11, 0.001224, "log"], "kernel_initializer_choices": ["glorot_normal", "glorot_uniform", "he_normal", "he_uniform", "random_normal", "random_uniform", "zeros"], "bias_initializer_choices": ["zeros", "random_uniform"], "learning_rate_choices": [0.01, 0.001, 0.0001]}
+{
+ "config_name": "dnn_default",
+ "INPUT_DIM": 14,
+ "OUTPUT_DIM": 13,
+ "NETWORK_TYPE": "DNN",
+ "optimizer": "adam",
+ "metrics": [
+  "mse"
+ ],
+ "loss_fn": "mse",
+ "model_dir": "models",
+ "checkpoints_dir": "model_checkpoints",
+ "tuner_dir": "tuner",
+ "train_dir": "training_data",
+ "test_dir": "test_data",
+ "activation_fns": [
+  "tanh",
+  "sigmoid"
+ ],
+ "depth_range": [
+  6,
+  12,
+  2
+ ],
+ "width_range": [
+  20,
+  50,
+  2
+ ],
+ "reg_range": [
+  1e-11,
+  0.001224,
+  "log"
+ ],
+ "kernel_inits": [
+  "glorot_normal",
+  "glorot_uniform",
+  "he_normal",
+  "he_uniform",
+  "random_normal",
+  "random_uniform",
+  "zeros"
+ ],
+ "bias_inits": [
+  "zeros",
+  "random_uniform"
+ ],
+ "learning_rates": [
+  0.01,
+  0.001,
+  0.0001
+ ]
+}
