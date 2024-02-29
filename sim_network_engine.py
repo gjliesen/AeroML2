@@ -47,7 +47,7 @@ class SimNetworkEngine:
         if gpus:
             # Use MirroredStrategy for multiple GPUs
             if len(gpus) > 1:
-                return tf.distribute.MirroredStrategy()
+                return tf.distribute.MirroredStrategy().scope
             # Use default strategy for a single GPU
             return tf.distribute.get_strategy().scope
         return dummy_context_mgr
