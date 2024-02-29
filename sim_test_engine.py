@@ -3,124 +3,43 @@ import random
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import plotly.io as pio
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
 from simulation.aircraft_sim import quat_to_euler
-from sim_data_engine import SimDataEngine
+
+# pylint: disable=E1101
 
 
 class SimTestEngine:
     def __init__(
         self,
-        attitude_mode="Euler",
-        input_norm_factors=[
-            10,
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            10,
-            20,
-            12,
-            12,
-            12,
-        ],
-        output_norm_factors=[
-            90,
-            90,
-            12000,
-            1,
-            1,
-            1,
-            1,
-            60,
-            10,
-            20,
-            0.5,
-            1,
-            1,
-        ],
+        data_eng,
+        att_mode: str = "Euler",
     ):
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.data_eng = data_eng
+        # dynamically etting the configuration attributes
+        self.attitude_mode = att_mode
+        self.columns_input = []
+        self.columns_output = []
+        self._set_columns()
 
-        pio.renderers.default = "browser"
-        colors = px.colors.qualitative.Dark24
-        self.attitude_mode = attitude_mode
-        self.input_norm_factors = input_norm_factors
-        self.output_norm_factors = output_norm_factors
-
-        if self.attitude_mode == "Euler":
-            self.columns_input = [
-                "t",
-                "Lat",
-                "Lon",
-                "Alt",
-                "Phi",
-                "Theta",
-                "Psi",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-            self.columns_output = [
-                "Lat",
-                "Lon",
-                "Alt",
-                "Phi",
-                "Theta",
-                "Psi",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-        else:
-            self.columns_input = [
-                "t",
-                "Lat",
-                "Lon",
-                "Alt",
-                "q0",
-                "q1",
-                "q2",
-                "q3",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-            self.columns_output = [
-                "Lat",
-                "Lon",
-                "Alt",
-                "q0",
-                "q1",
-                "q2",
-                "q3",
-                "Vx",
-                "Vy",
-                "Vz",
-                "P",
-                "Q",
-                "R",
-            ]
-
-        col_types = ["_Truth", "_Prediction"]
-
-        self.line_dicts = {}
         self.plot_columns = []
+        self.line_dicts = {}
+        self._set_figure_params()
+
+    def _set_columns(self):
+        if self.attitude_mode == "Euler":
+            self.columns_input = self.data_eng.INPUT_FEATURES_EULER
+            self.columns_output = self.data_eng.OUTPUT_FEATURES_EULER
+        else:
+            self.columns_input = self.data_eng.INPUT_FEATURES
+            self.columns_output = self.data_eng.OUTPUT_FEATURES
+
+    def _set_figure_params(self):
+        col_types = ["_Truth", "_Prediction"]
+        colors = px.colors.qualitative.Dark24
         for i, col in enumerate(self.columns_output):
             subplot = []
             for col_type in col_types:
@@ -131,7 +50,76 @@ class SimTestEngine:
                 else:
                     self.line_dicts[full_name] = dict(color=colors[i], dash="dash")
             self.plot_columns.append(subplot)
-        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+
+    def test_model(self, model_to_test, data_dir):
+        # Defining the directories
+        test_dir = f"{data_dir}/test"
+        plot_dir = f"test_data_plots/{data_dir}"
+        os.makedirs(plot_dir, exist_ok=True)
+
+        # Placing all test data records into a list
+        files = os.listdir(test_dir)
+
+        # Looping through test_data and plotting
+        for fname in files:
+            # Define test record file name, joining the path
+            tfrecord_path = f"{test_dir}/{fname}"
+            # Creating a comparison dataframe to plot
+            comp_df = self._process_data(tfrecord_path, model_to_test)
+            # Plotting comparison dataframe
+            self.test_plots(comp_df, fname, plot_dir)
+
+    def _process_data(self, fname, model_to_test):
+        # Looping through and building dataset from tfrecords
+        dataset, _ = self.data_eng.load_dataset(fname=fname)
+        # Extracting the normalized input and output array from the datset
+        norm_input_arr, norm_output_arr = self._extract_data(dataset)
+
+        # Running the inputs through the model
+        norm_model_output = model_to_test(norm_input_arr)
+
+        norm_arrays = [norm_input_arr, norm_output_arr, norm_model_output]
+        denorm_arrays = self._denormalize_data(norm_arrays)
+        if self.attitude_mode == "Euler":
+            denorm_arrays = self._convert_attitude(denorm_arrays)
+
+        return self._create_dataframe(denorm_arrays)
+
+    def _extract_data(self, dataset):
+        input_data_list = []
+        output_data_list = []
+        for item in dataset:
+            inp, model_output_arr = item
+            input_data_list.append(inp.numpy())
+            output_data_list.append(model_output_arr.numpy())
+            # Combining all the records into two numpy arrays
+        # Test Input
+        norm_input_arr = np.vstack(tuple(input_data_list))
+        # Test Output
+        norm_output_arr = np.vstack(tuple(output_data_list))
+
+        return (norm_input_arr, norm_output_arr)
+
+    def _denormalize_data(self, norm_arrays):
+        is_inputs = [True, False, False]
+        denorm_arrays = []
+        for arr, is_input in zip(norm_arrays, is_inputs):
+            denorm_arrays.append(
+                (
+                    self.data_eng.normalize(arr, is_input=is_input, invert=True)
+                    .numpy()
+                    .squeeze()
+                )
+            )
+        return denorm_arrays
+
+    def _convert_attitude(self, denorm_arrays):
+        # Convert attitude to euler angles if selected
+        quat_indices = [4, 3, 3]
+        euler_arrays = []
+        for arr, quat_idx in zip(denorm_arrays, quat_indices):
+            euler_arrays.append(self._convert_quaternions(arr, quat_idx))
+        return euler_arrays
 
     def _convert_quaternions(self, arr, q_start):
         # Ending index of quaternions
@@ -144,80 +132,32 @@ class SimTestEngine:
         # Return new array
         return np.hstack((time_and_pos, euler_angles, vel_and_body_rates))
 
-    def test_model(self, model_to_test, test_dir="test_data", cnt=None):
-        files = os.listdir(test_dir)
-        if cnt is not None:
-            files = random.sample(files, k=cnt)
-        for fname in files:
-            comp_df = self.process_data(f"{test_dir}/{fname}", model_to_test)
-            self.test_plots(comp_df, fname, test_dir)
-
-    def process_data(self, fname, model_to_test, dir="test_data"):
-        # Looping through and building dataset from tfrecords
-        dataset = SimDataEngine.load_dataset("Test", dir=dir, fname=fname)
-        input_data_list = []
-        output_data_list = []
-        for item in dataset:
-            inp, model_output_arr = item
-            input_data_list.append(inp.numpy())
-            output_data_list.append(model_output_arr.numpy())
-        # Combining all the records into two numpy arrays
-        # Test Input
-        norm_input_arr = np.vstack(tuple(input_data_list))
-        true_input_arr = SimDataEngine.normalize_data(
-            norm_input_arr, self.input_norm_factors, True
-        )
-
-        # Test Output
-        norm_output_arr = np.vstack(tuple(output_data_list))
-        true_output_arr = SimDataEngine.normalize_data(
-            norm_output_arr, self.output_norm_factors, True
-        )
-
-        # Running the inputs through the model
-        norm_model_output = model_to_test(norm_input_arr)
-
-        # Denormalize out array
-        model_output_arr = SimDataEngine.normalize_data(
-            norm_model_output, self.output_norm_factors, invert=True
-        )
-
-        # Convert attitude to euler angles if selected
-        if self.attitude_mode == "Euler":
-            true_input_arr = self._convert_quaternions(true_input_arr.numpy(), 4)
-            true_output_arr = self._convert_quaternions(true_output_arr.numpy(), 3)
-            model_output_arr = self._convert_quaternions(model_output_arr.numpy(), 3)
-        else:
-            model_output_arr = model_output_arr.numpy().squeeze()
-
+    def _create_dataframe(self, denorm_arrays):
+        [true_input_arr, true_output_arr, pred_output_arr] = denorm_arrays
         # Defining truth and input dataframes
         input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
+
         true_output_df = pd.DataFrame(true_output_arr, columns=self.columns_output)
         # Adding time to output array for simplicity
-        true_output_df["time"] = input_df["t"]
+        true_output_df["Time"] = input_df["Time"]
 
         # Creating dataframe for output array
-        predicted_output_df = pd.DataFrame(
-            model_output_arr, columns=self.columns_output
-        )
+        pred_output_df = pd.DataFrame(pred_output_arr, columns=self.columns_output)
+
         # Adding time for simplicty
-        predicted_output_df["time"] = input_df["t"]
+        pred_output_df["Time"] = input_df["Time"]
 
         # Joining the two dataframes for plotting and comparison
         comp_df = true_output_df.join(
-            predicted_output_df, lsuffix="_Truth", rsuffix="_Prediction"
+            pred_output_df, lsuffix="_Truth", rsuffix="_Prediction"
         )
         comp_df = comp_df.reindex(sorted(comp_df.columns), axis=1)
-        comp_df = comp_df.drop(columns=["time_Prediction"])
+        comp_df = comp_df.drop(columns=["Time_Prediction"])
 
         # Return dataframe for plotting
         return comp_df
 
-    def test_plots(
-        self, comp_df, title="test", plot_dir=f"test_data_plots", height=6000
-    ):
-        plot_dir = f"{self.date_str}_{plot_dir}"
-        os.makedirs(plot_dir, exist_ok=True)
+    def test_plots(self, comp_df, title, plot_dir, height=6000):
         # Initializing subplot
         fig = make_subplots(
             rows=len(self.plot_columns),
@@ -231,7 +171,7 @@ class SimTestEngine:
             for col in col_list:
                 fig.add_trace(
                     go.Scatter(
-                        x=comp_df["time_Truth"],
+                        x=comp_df["Time_Truth"],
                         y=comp_df[col],
                         name=col,
                         line=self.line_dicts[col],

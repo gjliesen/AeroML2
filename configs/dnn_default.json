@@ -1,0 +1,53 @@
+{
+ "config_name": "dnn_default",
+ "INPUT_DIM": 14,
+ "OUTPUT_DIM": 13,
+ "NETWORK_TYPE": "DNN",
+ "optimizer": "adam",
+ "metrics": [
+  "mse"
+ ],
+ "loss_fn": "mse",
+ "model_dir": "models",
+ "checkpoints_dir": "model_checkpoints",
+ "tuner_dir": "tuner",
+ "train_dir": "training_data",
+ "test_dir": "test_data",
+ "activation_fns": [
+  "tanh",
+  "sigmoid"
+ ],
+ "depth_range": [
+  6,
+  12,
+  2
+ ],
+ "width_range": [
+  20,
+  50,
+  2
+ ],
+ "reg_range": [
+  1e-11,
+  0.001224,
+  "log"
+ ],
+ "kernel_inits": [
+  "glorot_normal",
+  "glorot_uniform",
+  "he_normal",
+  "he_uniform",
+  "random_normal",
+  "random_uniform",
+  "zeros"
+ ],
+ "bias_inits": [
+  "zeros",
+  "random_uniform"
+ ],
+ "learning_rates": [
+  0.01,
+  0.001,
+  0.0001
+ ]
+}

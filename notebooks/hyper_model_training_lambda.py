@@ -17,8 +17,12 @@ project_name = f"{date_str}_aircraft_sim"
 batch_size = 2048
 
 # Load the training and validation datasets
-train_dataset = SimDataEngine.load_dataset("Train", dir=training_dir).cache().batch(batch_size)
-val_dataset = SimDataEngine.load_dataset("Val", dir=training_dir).cache().batch(batch_size)
+train_dataset = (
+    SimDataEngine.load_dataset("Train", data_dir=training_dir).cache().batch(batch_size)
+)
+val_dataset = (
+    SimDataEngine.load_dataset("Val", data_dir=training_dir).cache().batch(batch_size)
+)
 
 # Specifying non-default hyperparameters
 loss_fn = SimNetworkEngine.root_mean_squared_error
@@ -46,7 +50,7 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     model_name="aircraft_sim_1",
     tuner_trial=1,
     checkpoint_dir=checkpoint_dir,
-    model_dir=model_dir
+    model_dir=model_dir,
 )
 SimNetworkEngine.plot_network_history(history)
 
@@ -58,7 +62,7 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     model_name="aircraft_sim_2",
     tuner_trial=2,
     checkpoint_dir=checkpoint_dir,
-    model_dir=model_dir
+    model_dir=model_dir,
 )
 SimNetworkEngine.plot_network_history(history)
 
@@ -70,7 +74,7 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     model_name="aircraft_sim_3",
     tuner_trial=3,
     checkpoint_dir=checkpoint_dir,
-    model_dir=model_dir
+    model_dir=model_dir,
 )
 SimNetworkEngine.plot_network_history(history)
 
@@ -82,7 +86,7 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     model_name="aircraft_sim_4",
     tuner_trial=4,
     checkpoint_dir=checkpoint_dir,
-    model_dir=model_dir
+    model_dir=model_dir,
 )
 SimNetworkEngine.plot_network_history(history)
 

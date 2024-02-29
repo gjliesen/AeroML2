@@ -1,36 +1,44 @@
 # Library imports
 import os
-import tensorflow as tf
 from tensorflow import keras
+import tensorflow as tf
 import keras_tuner as kt
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sim_data_engine import SimDataEngine
 
+# pylint: disable=E1101
+
+
+@keras.saving.register_keras_serializable(name="rmse")
+def root_mean_squared_error(y_true, y_pred):
+    return tf.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
+
+
+# Dummy context manager for use when no strategy is provided
+class dummy_context_mgr:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
+
 
 class SimNetworkEngine:
-    @staticmethod
-    def create_directories(
-        tuner_dir="tuner", model_dir="models", checkpoint_dir="model_checkpoints"
-    ):
-        os.makedirs(tuner_dir, exist_ok=True)
-        os.makedirs(model_dir, exist_ok=True)
-        os.makedirs(checkpoint_dir, exist_ok=True)
+    def __init__(self, network_config):
+        for key, value in network_config.items():
+            setattr(self, key, value)
+        # convertings string optimizer to actual function
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
 
-    @staticmethod
-    @keras.saving.register_keras_serializable(name="rmse_loss")
-    def root_mean_squared_error(y_true, y_pred):
-        return tf.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
-
-    @staticmethod
-    def choose_distribution_strategy():
+    def choose_distribution_strategy(self):
         # Check for TPU availability
         try:
             tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
             if tpu:
                 tf.config.experimental_connect_to_cluster(tpu)
                 tf.tpu.experimental.initialize_tpu_system(tpu)
-                return tf.distribute.experimental.TPUStrategy(tpu)
+                return tf.distribute.experimental.TPUStrategy(tpu).scope()
         except ValueError:
             pass  # No TPU found
 
@@ -41,77 +49,42 @@ class SimNetworkEngine:
             if len(gpus) > 1:
                 return tf.distribute.MirroredStrategy()
             # Use default strategy for a single GPU
-            return tf.distribute.get_strategy()
+            return tf.distribute.get_strategy().scope()
+        return dummy_context_mgr()
 
-        # Default to None when only a CPU is available
-        return None
-
-    @staticmethod
-    def get_hypermodel_fn(
-        network_type="DNN",
-        loss_function="mse",
-        activation_functions=["tanh", "sigmoid"],
-        depth_range=[6, 12, 2],
-        width_range=[20, 50, 2],
-        regularization_range=[1e-11, 0.001224, "log"],
-        kernel_initializer_choices=[
-            "glorot_normal",
-            "glorot_uniform",
-            "he_normal",
-            "he_uniform",
-            "random_normal",
-            "random_uniform",
-            "zeros",
-        ],
-        bias_initializer_choices=["zeros", "random_uniform"],
-        learning_rate_choices=[1e-2, 1e-3, 1e-4],
-        optimizer=keras.optimizers.Adam,
-        metrics=["mse"],
-    ):
-
-        # Dummy context manager for use when no strategy is provided
-        class dummy_context_mgr:
-            def __enter__(self):
-                return None
-
-            def __exit__(self, exc_type, exc_value, traceback):
-                return False
-
-        strategy = SimNetworkEngine.choose_distribution_strategy()
-
-        if network_type == "DNN":
+    def get_hypermodel_fn(self):
+        strategy = self.choose_distribution_strategy()
+        if self.NETWORK_TYPE == "DNN":
 
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
 
-                with strategy.scope() if strategy is not None else dummy_context_mgr():
+                with strategy:
                     model = keras.Sequential()
                     model.add(
-                        keras.Input(shape=(14,), name="input_layer")
+                        keras.Input(shape=(self.INPUT_DIM,), name="input_layer")
                     )  # add input layer
                     hp_units = hp.Int(
                         f"dense_width",
-                        min_value=width_range[0],
-                        max_value=width_range[1],
-                        step=width_range[2],
+                        min_value=self.width_range[0],
+                        max_value=self.width_range[1],
+                        step=self.width_range[2],
                     )
                     hp_depth = hp.Int(
                         f"depth",
-                        min_value=depth_range[0],
-                        max_value=depth_range[1],
-                        step=depth_range[2],
+                        min_value=self.depth_range[0],
+                        max_value=self.depth_range[1],
+                        step=self.depth_range[2],
                     )
-                    hp_act = hp.Choice(f"dense_act_fn", values=activation_functions)
+                    hp_act = hp.Choice(f"dense_act_fn", values=self.activation_fns)
                     hp_reg = hp.Float(
                         f"reg_param",
-                        min_value=regularization_range[0],
-                        max_value=regularization_range[1],
-                        sampling=regularization_range[2],
+                        min_value=self.reg_range[0],
+                        max_value=self.reg_range[1],
+                        sampling=self.reg_range[2],
                     )
-                    hp_kernel = hp.Choice(
-                        f"dense_kernel", values=kernel_initializer_choices
-                    )
-                    hp_bias = hp.Choice(f"dense_bias", values=bias_initializer_choices)
+                    hp_kernel = hp.Choice(f"dense_kernel", values=self.kernel_inits)
+                    hp_bias = hp.Choice(f"dense_bias", values=self.bias_inits)
 
                     # add hidden layers
                     for i in range(hp_depth - 1):
@@ -129,7 +102,7 @@ class SimNetworkEngine:
                     # add output layer
                     model.add(
                         keras.layers.Dense(
-                            13,
+                            self.OUTPUT_DIM,
                             activation=None,
                             name=f"output_layer",
                             kernel_initializer=hp_kernel,
@@ -141,64 +114,64 @@ class SimNetworkEngine:
 
                     # Model Compilation
                     hp_learning_rate = hp.Choice(
-                        "learning_rate", values=learning_rate_choices
+                        "learning_rate", values=self.learning_rates
                     )
                     model.compile(
-                        optimizer=optimizer(learning_rate=hp_learning_rate),
-                        loss=loss_function,
-                        metrics=metrics,
+                        optimizer=self.optimizer,
+                        loss=self.loss_fn,
+                        metrics=self.metrics,
                     )
+                    model.optimizer.learning_rate = hp_learning_rate
                     return model
 
-        if network_type == "RNN":
+        elif self.NETWORK_TYPE == "RNN":
 
             def hypermodel_fn(hp):
                 keras.backend.clear_session()
 
-                with strategy.scope() if strategy is not None else dummy_context_mgr():
+                with strategy:
                     model = keras.Sequential()
 
                     model.add(
                         keras.layers.SimpleRNN(
-                            14, input_shape=(None, 14), name="input_layer"
+                            self.INPUT_DIM,
+                            input_shape=(None, self.INPUT_DIM),
+                            name="input_layer",
                         )
                     )  # add input layer
 
                     hp_units = hp.Int(
                         f"dense_width",
-                        min_value=width_range[0],
-                        max_value=width_range[1],
-                        step=width_range[2],
+                        min_value=self.width_range[0],
+                        max_value=self.width_range[1],
+                        step=self.width_range[2],
                     )
                     hp_depth = hp.Int(
                         f"depth",
-                        min_value=depth_range[0],
-                        max_value=depth_range[1],
-                        step=depth_range[2],
+                        min_value=self.depth_range[0],
+                        max_value=self.depth_range[1],
+                        step=self.depth_range[2],
                     )
-                    hp_act = hp.Choice(f"dense_act_fn", values=activation_functions)
+                    hp_act = hp.Choice(f"dense_act_fn", values=self.activation_fns)
                     hp_reg = hp.Float(
                         f"reg_param",
-                        min_value=regularization_range[0],
-                        max_value=regularization_range[1],
-                        sampling=regularization_range[2],
+                        min_value=self.reg_range[0],
+                        max_value=self.reg_range[1],
+                        sampling=self.reg_range[2],
                     )
-                    hp_kernel = hp.Choice(
-                        f"dense_kernel", values=kernel_initializer_choices
-                    )
-                    hp_bias = hp.Choice(f"dense_bias", values=bias_initializer_choices)
+                    hp_kernel = hp.Choice(f"dense_kernel", values=self.kernel_inits)
+                    hp_bias = hp.Choice(f"dense_bias", values=self.bias_inits)
 
                     # add hidden layers
                     for i in range(hp_depth - 1):
                         model.add(
-                            keras.layers.Dense(
+                            keras.layers.SimpleRNN(
                                 hp_units,
+                                return_sequences=True,
                                 activation=hp_act,
-                                name=f"hidden_Layer_{i}",
+                                name=f"recurrent_Layer_{i}",
                                 kernel_initializer=hp_kernel,
                                 bias_initializer=hp_bias,
-                                kernel_regularizer=keras.regularizers.l2(hp_reg),
-                                bias_regularizer=keras.regularizers.l2(hp_reg),
                             )
                         )
                     # add output layer
@@ -216,22 +189,22 @@ class SimNetworkEngine:
 
                     # Model Compilation
                     hp_learning_rate = hp.Choice(
-                        "learning_rate", values=learning_rate_choices
+                        "learning_rate", values=self.learning_rate_choices
                     )
                     model.compile(
-                        optimizer=optimizer(learning_rate=hp_learning_rate),
-                        loss=loss_function,
-                        metrics=metrics,
+                        optimizer=self.optimizer,
+                        loss=self.loss_fn,
+                        metrics=self.metrics,
                     )
+                    model.optimizer.learning_rate = hp_learning_rate
                     return model
 
         return hypermodel_fn
 
-    @staticmethod
     def build_tuner(
+        self,
         hypermodel_fn,
         tuner_type,
-        project_name,
         objective_metric="val_loss",
         objective_minmax="min",
         max_epochs=8,
@@ -239,6 +212,8 @@ class SimNetworkEngine:
         directory="tuner",
         overwrite=False,
     ):
+        os.makedirs(self.tuner_dir, exist_ok=True)
+        project_name = f"{self.date_str}_{self.config_name}"
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
@@ -276,28 +251,7 @@ class SimNetworkEngine:
         return tuner
 
     @staticmethod
-    def tune_model(
-        tuner,
-        train_dataset,
-        val_dataset,
-        es_metric="val_loss",
-        es_patience=4,
-        min_delta=0.001,
-    ):
-        stop_early = keras.callbacks.EarlyStopping(
-            monitor=es_metric, min_delta=min_delta, patience=10
-        )
-        tuner.search(
-            train_dataset,
-            epochs=8,
-            validation_data=val_dataset,
-            verbose=True,
-            callbacks=[stop_early],
-        )
-        return tuner
-
-    @staticmethod
-    def get_most_recent_tuner(folder_path):
+    def get_most_recent_tuner(folder_path: str):
         # Ensure the folder path is a string
         if not isinstance(folder_path, str):
             raise ValueError("folder_path must be a string")
@@ -306,6 +260,8 @@ class SimNetworkEngine:
         files = os.listdir(folder_path)
 
         # Sort files by datetime
+        # pylint: disable=E0602
+        # Pylance: disable=reportUndefinedVariable
         sorted_files = sorted(files, key=SimDataEngine.parse_datetime, reverse=True)
 
         # Return the most recent file
@@ -335,22 +291,17 @@ class SimNetworkEngine:
 
         hyper_params = tuner.get_best_hyperparameters(num_trials=10)
         for hyper_param in hyper_params:
-            print(hyper_param)
+            print(hyper_param.values)
 
-    @staticmethod
     def train_tuned_model(
+        self,
         train_dataset,
         val_dataset,
+        callbacks,
         epochs=10,
         tuner=None,
         path=None,
-        checkpoint_dir="model_checkpoints",
-        model_name=None,
         tuner_trial=0,
-        es_monitor="val_loss",
-        es_patience=3,
-        min_delta=0.001,
-        checkpoint_mode="min",
         model_dir="models",
     ):
         # Check if either tuner or path is provided, but not both
@@ -361,34 +312,17 @@ class SimNetworkEngine:
         if tuner is None:
             tuner = SimNetworkEngine.retrieve_tuner(path)
 
-        if model_name is None:
-            date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
-            model_name = f"{date_str}_unnamed"
+        model_name = f"{self.date_str}_{self.config_name}"
 
         hyper_params = tuner.get_best_hyperparameters(num_trials=10)[tuner_trial]
 
         hypermodel = tuner.hypermodel.build(hyper_params)
 
-        checkpoint_path = os.path.join(checkpoint_dir, model_name)
-        os.makedirs(checkpoint_path, exist_ok=True)
-        checkpoints = keras.callbacks.ModelCheckpoint(
-            filepath=checkpoint_path,
-            save_weights_only=False,
-            monitor=es_monitor,
-            mode=checkpoint_mode,
-            save_best_only=True,
-            verbose=1,
-        )
-
-        stop_early = keras.callbacks.EarlyStopping(
-            monitor=es_monitor, min_delta=min_delta, patience=es_patience
-        )
-
         history = hypermodel.fit(
             train_dataset,
             epochs=epochs,
             validation_data=val_dataset,
-            callbacks=[checkpoints, stop_early],
+            callbacks=callbacks,
             verbose=True,
         )
 
@@ -408,13 +342,3 @@ class SimNetworkEngine:
         plt.legend(["Training Loss", "Test Loss"])
         plt.title("Test and Training Loss")
         plt.show()
-
-        # # Linear plot
-        # plt.figure(figsize=(20, 8))
-        # plt.plot(range(epochs), history['mse'], c='r', linewidth=2)
-        # plt.plot(range(epochs), history['val_loss'], c ='b', linestyle='dashed')
-        # plt.xlabel("Epoch")
-        # plt.ylabel("Loss")
-        # plt.legend(["Training Loss", "Test Loss"])
-        # plt.title("Test and Training Loss")
-        # plt.show()
