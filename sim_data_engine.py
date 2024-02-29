@@ -147,11 +147,11 @@ class SimDataEngine:
             sim (object): _description_
         """
         # Create lists of runs to vertical stack later
-        if self.NETWORK_TYPE == "DNN"
+        if self.NETWORK_TYPE == "DNN":
             self.cur_input = self.concatInputs(sim.lla_states_init).squeeze()
         else:
             self.cur_input = sim.lla_states_init().squeeze()
-    
+
         self.cur_output = sim.get_all_states()
         if self.shuffle:
             self.shuffle_data()
