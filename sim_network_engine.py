@@ -38,7 +38,7 @@ class SimNetworkEngine:
             if tpu:
                 tf.config.experimental_connect_to_cluster(tpu)
                 tf.tpu.experimental.initialize_tpu_system(tpu)
-                return tf.distribute.experimental.TPUStrategy(tpu).scope()
+                return tf.distribute.experimental.TPUStrategy(tpu).scope
         except ValueError:
             pass  # No TPU found
 
@@ -49,8 +49,33 @@ class SimNetworkEngine:
             if len(gpus) > 1:
                 return tf.distribute.MirroredStrategy()
             # Use default strategy for a single GPU
-            return tf.distribute.get_strategy().scope()
-        return dummy_context_mgr()
+            return tf.distribute.get_strategy().scope
+        return dummy_context_mgr
+
+    def build_RNN(self, width):
+        keras.backend.clear_session()
+        # Define the distribution strategy for training
+        scope = self.choose_distribution_strategy()
+
+        input_shape = [None, self.INPUT_DIM]
+        with scope():
+            model = keras.models.Sequential()
+            model.add(
+                keras.layers.LSTM(
+                    width,
+                    return_sequences=True,
+                    input_shape=input_shape,
+                )
+            )
+            model.add(keras.layer.RepeatVector((self.run_time / self.frequency)))
+            model.add(keras.layers.LSTM(width, return_sequences=True))
+            model.add(keras.layers.TimeDistributed(keras.layers.Dense(width)))
+            model.compile(
+                optimizer=self.optimizer,
+                loss="rmse",
+                metrics=self.metrics,
+            )
+            return model
 
     def get_hypermodel_fn(self):
         strategy = self.choose_distribution_strategy()
