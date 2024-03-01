@@ -28,6 +28,8 @@ class SimNetworkEngine:
     def __init__(self, network_config):
         for key, value in network_config.items():
             setattr(self, key, value)
+        if self.loss_fn == "rmse":
+            self.loss_fn = root_mean_squared_error
         # convertings string optimizer to actual function
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
 
@@ -236,9 +238,11 @@ class SimNetworkEngine:
         factor=3,
         directory="tuner",
         overwrite=False,
+        project_name="",
     ):
         os.makedirs(self.tuner_dir, exist_ok=True)
-        project_name = f"{self.date_str}_{self.config_name}"
+        if project_name == "":
+            project_name = f"{self.date_str}_{self.config_name}"
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
