@@ -69,12 +69,11 @@ class SimNetworkEngine:
                     input_shape=input_shape,
                 )
             )
-            model.add(keras.layer.RepeatVector((self.run_time / self.frequency)))
             model.add(keras.layers.LSTM(width, return_sequences=True))
-            model.add(keras.layers.TimeDistributed(keras.layers.Dense(width)))
+            model.add(keras.layers.Dense(13))
             model.compile(
                 optimizer=self.optimizer,
-                loss="rmse",
+                loss="mse",
                 metrics=self.metrics,
             )
             return model
