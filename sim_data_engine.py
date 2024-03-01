@@ -60,11 +60,14 @@ class SimDataEngine:
             for itr in range(iters):
                 valid = self.run_sim(itr)
                 if valid:
-                    self.write_example(tfrecord)
+                    if self.NETWORK_TYPE == "DNN":
+                        self.write_DNN_example(tfrecord)
+                    elif self.NETWORK_TYPE == "RNN":
+                        self.write_RNN_example(tfrecord)
                 if (itr + 1) % 500 == 0:
                     print(f"iteration: {itr+1} of {iters}")
 
-    def write_example(self, tfrecord: object):
+    def write_DNN_example(self, tfrecord: object):
         """_summary_
 
         Args:
@@ -73,18 +76,8 @@ class SimDataEngine:
         Raises:
             ValueError: _description_
         """
-        if self.NETWORK_TYPE == "DNN":
-            input_states = self.cur_input
-            output_states = self.cur_output
-        elif self.NETWORK_TYPE == "RNN":
-            input_states = [self.cur_input]
-            output_states = [self.cur_output]
-        else:
-            raise ValueError(
-                "Invalid configuration. Supported configurations are 'DNN' and 'RNN'."
-            )
 
-        for input_state, output_state in zip(input_states, output_states):
+        for input_state, output_state in zip(self.cur_input, self.cur_output):
             data = {
                 "input_state": tf.train.Feature(
                     float_list=tf.train.FloatList(value=input_state)
@@ -95,6 +88,33 @@ class SimDataEngine:
             }
             example = tf.train.Example(features=tf.train.Features(feature=data))
             tfrecord.write(example.SerializeToString())
+
+    def write_RNN_example(self, tfrecord: object):
+        """_summary_
+
+        Args:
+            tfrecord (object): _description_
+
+        Raises:
+            ValueError: _description_
+        """
+        data = {
+            "input_state": tf.train.Feature(
+                float_list=tf.train.FloatList(value=self.cur_input.flatten())
+            ),
+            "output_state": tf.train.Feature(
+                float_list=tf.train.FloatList(value=self.cur_output.flatten())
+            ),
+            "input_shape": tf.train.Feature(
+                int64_list=tf.train.Int64List(value=list(self.cur_input.shape))
+            ),
+            "output_shape": tf.train.Feature(
+                int64_list=tf.train.Int64List(value=list(self.cur_output.shape))
+            ),
+        }
+
+        example = tf.train.Example(features=tf.train.Features(feature=data))
+        tfrecord.write(example.SerializeToString())
 
     def randomize(self, input_tup: tuple):
         """_summary_
@@ -149,10 +169,11 @@ class SimDataEngine:
         # Create lists of runs to vertical stack later
         if self.NETWORK_TYPE == "DNN":
             self.cur_input = self.concatInputs(sim.lla_states_init).squeeze()
+            self.cur_output = sim.get_all_states()[1::]
         else:
-            self.cur_input = sim.lla_states_init().squeeze()
-
-        self.cur_output = sim.get_all_states()
+            self.cur_input = sim.lla_states_init.squeeze()
+            self.cur_output = sim.get_all_states()
+            self.cur_output = self.cur_output[1::]
         if self.shuffle:
             self.shuffle_data()
 
@@ -180,7 +201,7 @@ class SimDataEngine:
         self.cur_input = self.cur_input[indices]
         self.cur_output = self.cur_output[indices]
 
-    def map_fn(self, serialized_example):
+    def DNN_map_fn(self, serialized_example):
         """_summary_
 
         Args:
@@ -195,6 +216,28 @@ class SimDataEngine:
         }
         example = tf.io.parse_single_example(serialized_example, feature)
         return example["input_state"], example["output_state"]
+
+    def RNN_map_fn(self, serialized_example):
+        """_summary_
+
+        Args:
+            serialized_example (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
+        feature = {
+            "input_state": tf.io.FixedLenFeature([self.INPUT_DIM], tf.float32),
+            "output_state": tf.io.FixedLenFeature([100, self.OUTPUT_DIM], tf.float32),
+            "input_shape": tf.io.FixedLenFeature([1], tf.int64),
+            "output_shape": tf.io.FixedLenFeature([2], tf.int64),
+        }
+        example = tf.io.parse_single_example(serialized_example, feature)
+
+        input_state = tf.reshape(example["input_state"], example["input_shape"])
+        output_state = tf.reshape(example["output_state"], example["output_shape"])
+
+        return input_state, output_state
 
     def get_most_recent_dataset(self, folder_path: str = "data") -> str:
         """Searches a given folder and dataset and looks for the most recently generated one
@@ -245,7 +288,11 @@ class SimDataEngine:
         else:
             data_dir = ""
         dataset = tf.data.TFRecordDataset(fname)
-        dataset = dataset.map(self.map_fn)
+        if self.NETWORK_TYPE == "DNN":
+            map_fn = self.DNN_map_fn
+        elif self.NETWORK_TYPE == "RNN":
+            map_fn = self.RNN_map_fn
+        dataset = dataset.map(map_fn)
         dataset = dataset.map(
             lambda input_state, output_state: (
                 self.normalize(input_state, True),
