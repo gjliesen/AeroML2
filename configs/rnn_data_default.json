@@ -1,5 +1,5 @@
 {
- "config_name": "rnn_data_small",
+ "config_name": "rnn_data_default",
  "constraints": {
   "lat": [
    -10,
@@ -52,9 +52,9 @@
  },
  "frequency": 0.01,
  "run_time": 1,
- "iterations": 1000,
+ "iterations": 125000,
  "test_cases": 10,
- "length": 1000,
+ "length": 125000,
  "rnd_method": "random",
  "shuffle": false,
  "NETWORK_TYPE": "RNN",

@@ -15,12 +15,13 @@
  "test_dir": "test_data",
  "activation_fns": [
   "tanh",
-  "sigmoid"
+  "sigmoid",
+  "relu"
  ],
  "depth_range": [
-  6,
-  12,
-  2
+  2,
+  4,
+  1
  ],
  "width_range": [
   20,
