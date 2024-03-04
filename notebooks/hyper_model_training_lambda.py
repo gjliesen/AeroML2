@@ -28,7 +28,7 @@ val_dataset = (
 loss_fn = SimNetworkEngine.root_mean_squared_error
 activation_functions = ["relu", "tanh", "sigmoid"]
 # Initialize the hypermodel function
-hypermodel_fn = SimNetworkEngine.get_hypermodel_fn(loss_fn, activation_functions)
+hypermodel_fn = SimNetworkEngine.get_DNN_hypermodel_fn(loss_fn, activation_functions)
 # tune the hypermodel
 tuner = SimNetworkEngine.build_tuner(
     hypermodel_fn, "hyperband", project_name, max_epochs=10, directory=tuner_dir
