@@ -89,9 +89,9 @@ class SimTestEngine:
         input_data_list = []
         output_data_list = []
         for item in dataset:
-            inp, model_output_arr = item
+            inp, outp = item
             input_data_list.append(inp.numpy())
-            output_data_list.append(model_output_arr.numpy())
+            output_data_list.append(outp.numpy())
             # Combining all the records into two numpy arrays
         # Test Input
         norm_input_arr = np.vstack(tuple(input_data_list))
