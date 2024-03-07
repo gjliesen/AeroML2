@@ -105,7 +105,7 @@ class Surface_Two:
         self.Cu = np.zeros((4,))
         self.Su = np.zeros((4,))
         self.SuS = np.zeros((4,))
-        self.a_surf = np.zeros((4, 1))
+        self.a_surf = np.zeros((1, 4))
         self.q_bar = -1.0
         self.CL = -1.0
         self.CD = -1.0
@@ -163,7 +163,6 @@ class Surface_Two:
         temp1 = np.dot(self.v_temp.T, self.contraction_matrix)
         temp2 = np.dot(self.v_B_B_SnA.T, self.first_element_matrix)
 
-        self.a_surf[:, :] = self.surf_arr[0:, 4] - np.arctan2(temp1, temp2)
         # temp3 = np.dot(self.contraction_matrix.T, self.v_temp)
         # temp4 = np.dot(self.first_element_matrix.T, self.v_B_B_SnA)
 
