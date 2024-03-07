@@ -37,10 +37,16 @@ def eye_mat(mat1, mat2, mat3, mat4):
     return np.vstack((row1, row2, row3, row4))
 
 
+def check_contig(arr):
+    print(arr.flags["C_CONTIGUOUS"])
+    print(arr.flags["F_CONTIGUOUS"])
+
+
 # # Enable DEBUG level logging for Numba
 # logging.basicConfig(level=logging.DEBUG)
 
 
+# @jitclass(surface_two_spec)
 class Surface_Two:
     def __init__(self, arr, n_vec, dx_vec, dx_mat):
         self.surf_arr = arr
@@ -79,41 +85,41 @@ class Surface_Two:
             np.float64,
         )
         eye_mat = np.eye(3).astype(np.float64)
-        self.sum_matrix = np.vstack((eye_mat, eye_mat, eye_mat, eye_mat))
+        self.sum_matrix = np.hstack((eye_mat, eye_mat, eye_mat, eye_mat))
 
         self.n_drag_vector = np.array(
             [-1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0], np.float64
-        )
+        ).reshape((12, 1))
 
         self.dCLdu = 3.0
 
         self.w_B_B_BE_mat = np.zeros((12, 12))
         self.C_BW = np.zeros((12, 12))
-        self.v_B_B_BA_vec = np.zeros((12,))
-        self.u = np.zeros((4,))
-        self.Sref = np.zeros((4,))
-        self.AR = np.zeros((4,))
-        self.CL_a = np.zeros((4,))
-        self.Cu = np.zeros((4,))
-        self.Su = np.zeros((4,))
-        self.SuS = np.zeros((4,))
-        self.a_surf = np.zeros((4,))
+        self.v_B_B_BA_vec = np.zeros((12, 1))
+        self.u = np.zeros((4, 1))
+        self.Sref = np.zeros((4, 1))
+        self.AR = np.zeros((4, 1))
+        self.CL_a = np.zeros((4, 1))
+        self.Cu = np.zeros((4, 1))
+        self.Su = np.zeros((4, 1))
+        self.SuS = np.zeros((4, 1))
+        self.a_surf = np.zeros((4, 1))
         self.q_bar = -1.0
-        self.CL = -1.0
-        self.CD = -1.0
-        self.CM = -1.0
+        self.CL = np.zeros((4, 1))
+        self.CD = np.zeros((4, 1))
+        self.CM = np.zeros((4, 1))
 
-        self.F_surf_B_vec = np.zeros((12,))
-        self.L_surf_W = np.zeros((4,))
-        self.M_surf_W = np.zeros((4,))
-        self.D_surf_W = np.zeros((4,))
+        self.F_surf_B_vec = np.zeros((12, 1))
+        self.L_surf_W = np.zeros((4, 1))
+        self.M_surf_W = np.zeros((4, 1))
+        self.D_surf_W = np.zeros((4, 1))
 
         self.c_moment_mat = np.zeros((12, 12))
         self.calc_parameters()
 
         # Intermediate parameters
-        self.v_B_B_SnA = np.zeros((12,))
-        self.v_temp = np.zeros((12,))
+        self.v_B_B_SnA = np.zeros((12, 1))
+        self.v_temp = np.zeros((12, 1))
 
     def calc_parameters(self):
         C_Moment = np.array([[0, 0, 0], [0, 0, -1], [0, 1, 0]], np.float64)
@@ -121,22 +127,23 @@ class Surface_Two:
         # First instance of eye_mat
         self.c_moment_mat = eye_mat(C_Moment, C_Moment, C_Moment, C_Moment)
 
-        self.Sref = self.surf_arr[0:, 0] * self.surf_arr[0:, 1]
-        self.AR = self.surf_arr[0:, 1] ** 2 / self.Sref
-        self.CL_a = 2 * np.pi * self.AR / (2 + self.AR)
-        self.Cu = 0.2 * self.surf_arr[0:, 0]
-        self.Su = self.Cu * self.surf_arr[0:, 1]
-        self.SuS = self.Su / self.Sref
+        self.Sref[:, :] = self.surf_arr[0:, 0:1] * self.surf_arr[0:, 1:2]
+        self.AR[:, :] = self.surf_arr[0:, 1:2] ** 2 / self.Sref
+        self.CL_a[:, :] = 2 * np.pi * self.AR / (2 + self.AR)
+        self.Cu[:, :] = 0.2 * self.surf_arr[0:, 0:1]
+        self.Su[:, :] = self.Cu * self.surf_arr[0:, 1:2]
+        self.SuS[:, :] = self.Su / self.Sref
 
     def forces_and_moments(self, q_bar, C_BW, u, v_B_B_BA, w_B_B_BE_mat):
         # Second instance of eye_mat
-        self.w_B_B_BE_mat[:, :] = np.kron(np.eye(4, dtype=np.float64), w_B_B_BE_mat)
-        self.C_BW[:, :] = np.kron(np.eye(4, dtype=np.float64), C_BW)
+        v_B_B_BA = v_B_B_BA.reshape(-1, 1)
         for i in range(0, 12, 3):
+            self.w_B_B_BE_mat[i : i + 3, i : i + 3] = w_B_B_BE_mat
+            self.C_BW[i : i + 3, i : i + 3] = C_BW
             self.v_B_B_BA_vec[i : i + 3] = v_B_B_BA
 
         self.q_bar = q_bar
-        self.u = u
+        self.u[:, :] = u
 
         self.calc_surface_AOA()
         F = self.calc_forces()
@@ -145,18 +152,16 @@ class Surface_Two:
         return F, M
 
     def calc_surface_AOA(self):
-        self.v_B_B_SnA[:] = self.v_B_B_BA_vec + np.dot(self.w_B_B_BE_mat, self.dx_vec)
+        self.v_B_B_SnA[:, :] = self.v_B_B_BA_vec + np.dot(
+            self.w_B_B_BE_mat, self.dx_vec
+        )
 
-        self.v_temp[:] = self.v_B_B_SnA * self.n_vec
+        self.v_temp[:, :] = self.v_B_B_SnA * self.n_vec
 
-        # temp1 = np.dot(self.v_temp.T, self.contraction_matrix)
-        # temp2 = np.dot(self.v_B_B_SnA.T, self.first_element_matrix)
+        temp1 = np.dot(self.contraction_matrix, self.v_temp)
+        temp2 = np.dot(self.first_element_matrix, self.v_B_B_SnA)
 
-        # self.a_surf[:, :] = self.surf_arr[0:, 4] - np.arctan2(temp1, temp2)
-        temp3 = np.dot(self.contraction_matrix, self.v_temp)
-        temp4 = np.dot(self.first_element_matrix, self.v_B_B_SnA)
-
-        self.a_surf[:] = self.surf_arr[0:, 4] - np.arctan2(temp3, temp4)
+        self.a_surf[:, :] = self.surf_arr[0:, 4:5] - np.arctan2(temp1, temp2)
 
     def calc_forces(self):
         self.calc_lift()
@@ -167,48 +172,64 @@ class Surface_Two:
 
         F_surf_W = D_surf_W_exp * self.n_drag_vector + L_surf_W_exp * self.n_vec
 
-        self.F_surf_B_vec[:] = np.dot(self.C_BW, F_surf_W)
+        self.F_surf_B_vec[:, :] = np.dot(self.C_BW, F_surf_W)
 
-        F_surf_B = np.dot(self.F_surf_B_vec, self.sum_matrix)
+        F_surf_B = np.dot(self.sum_matrix, self.F_surf_B_vec)
 
         return F_surf_B
 
     def calc_moments(self):
-        self.CM = self.surf_arr[0:, 8] + self.surf_arr[0:, 9] * self.a_surf
-
-        self.M_surf_W[:] = self.CM * self.q_bar * self.Sref * self.surf_arr[0:, 0]
-
+        self.calc_moment()
         M_surf_W_exp = np.dot(self.expansion_matrix, self.M_surf_W)
         C_moment = M_surf_W_exp * self.c_moment_mat
         M_surf_B_vec = np.dot(C_moment, self.n_vec) + np.dot(
             self.dx_mat, self.F_surf_B_vec
         )
-        M_surf_B = np.dot(M_surf_B_vec, self.sum_matrix)
+        # Use of np.dot
+        M_surf_B = np.dot(self.sum_matrix, M_surf_B_vec)
 
         return M_surf_B
 
-    def calc_lift(self):
-        # Calculating lift coefficient
-        self.CL = (
-            self.surf_arr[0:, 2]
+    def calc_lift_coefficient(self):
+        self.CL[:, :] = (
+            self.surf_arr[0:, 2:3]
             + self.CL_a * self.a_surf
             + self.SuS * self.dCLdu * self.u
         )
-        # Calculating lift force
-        self.L_surf_W[:] = self.CL * self.q_bar * self.Sref
 
-    def calc_drag(self):
-        # Calculating drag coefficient
-        a_diff = self.a_surf - self.surf_arr[0:, 7]
+    def calc_lift(self):
+        self.calc_lift_coefficient()
+        self.L_surf_W[:, :] = self.CL * self.q_bar * self.Sref
+
+    def calc_drag_coefficient(self):
+        a_diff = self.a_surf - self.surf_arr[0:, 7:8]
         a_diff_squared = a_diff**2
         cl_squared_over_pi_ar = self.CL**2 / (np.pi * self.AR)
-        self.CD = (
-            self.surf_arr[0:, 5]
-            + self.surf_arr[0:, 6] * a_diff_squared
-            + cl_squared_over_pi_ar / self.surf_arr[0:, 3]
+        self.CD[:, :] = (
+            self.surf_arr[0:, 5:6]
+            + self.surf_arr[0:, 6:7] * a_diff_squared
+            + cl_squared_over_pi_ar / self.surf_arr[0:, 3:4]
         )
-        # Calculating drag force
-        self.D_surf_W[:] = self.CD * self.q_bar * self.Sref
+        # self.CD = (
+        #     self.surf_arr[0::, 5]
+        #     + self.surf_arr[0::, 6] * (self.a_surf - self.surf_arr[0::, 7]) ** 2
+        #     + self.CL**2 / (np.pi * self.surf_arr[0::, 3] * self.AR)
+        # )
+
+    def calc_drag(self):
+        self.calc_drag_coefficient()
+        self.D_surf_W[:, :] = self.CD * self.q_bar * self.Sref
+
+    def calc_moment_coefficient(self):
+        self.CM[:, :] = self.surf_arr[0:, 8:9] + self.surf_arr[0:, 9:10] * self.a_surf
+        # CM_0 = self.surf_arr[0:, 8]
+        # CM_a = self.surf_arr[0:, 9]
+        # a_surf = self.a_surf
+        # self.CM = ne.evaluate("CM_0 + CM_a * a_surf")
+
+    def calc_moment(self):
+        self.calc_moment_coefficient()
+        self.M_surf_W[:, :] = self.CM * self.q_bar * self.Sref * self.surf_arr[0:, 0:1]
 
 
 class Aero_Parameters:
@@ -346,8 +367,8 @@ class Aero_Parameters:
 
         surf_arr = np.array(surf_list)
 
-        n_vec = np.hstack((n_s4, n_s5, n_s2, n_s3), dtype=np.float64)
-        dx_cm_vec = np.hstack((dx_cm4, dx_cm5, dx_cm2, dx_cm3), dtype=np.float64)
+        n_vec = np.hstack((n_s4, n_s5, n_s2, n_s3), dtype=np.float64).reshape((12, 1))
+        dx_cm_vec = np.hstack((dx_cm4, dx_cm5, dx_cm2, dx_cm3)).reshape((12, 1))
         # 4th instance of eye_mat
         dx_cm_mat = eye_mat(dx_mat4, dx_mat5, dx_mat2, dx_mat3)
 
@@ -460,10 +481,24 @@ class Aero_Parameters:
     def get_forces_and_moments(self, v_B_B_BA, v_inf, C_BW, u, w_B_B_BE):
         q_bar = 0.5 * self.rho * v_inf**2
         w_B_B_BE_mat = cross_product_matrix(w_B_B_BE)
+        u = u.reshape(-1, 1)
+
+        # for i in range(len(self.surfs)):
+        #     self.surfs[i].forces_and_moments(v_B_B_BA, C_BW,
+        #                                      u[i], w_B_B_BE, q_bar,
+        #                                      w_B_B_BE_mat)
+        #     F = F + self.surfs[i].get_surface_forces()
+        #     M = M + self.surfs[i].get_surface_moments()
 
         Ft, Mt = self.surfs2.forces_and_moments(q_bar, C_BW, u, v_B_B_BA, w_B_B_BE_mat)
 
-        return Ft, Mt
+        #
+        # if F.all() == Ft.all():
+        #     print("Wow")
+        #
+        # if M.all() == Mt.all():
+        #     print("Holy Cow!")
+        return Ft.squeeze(), Mt.squeeze()
 
 
 # Start with a derivative controller, look at attitude/omega
