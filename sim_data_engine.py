@@ -2,7 +2,7 @@ import time
 import os
 import tensorflow as tf
 import numpy as np
-from simulation.aircraft_sim_no_forces import AircraftSimNoForces
+from simulation.aircraft_sim import Aircraft_Sim
 from datetime import datetime
 
 # pylint: disable=E1101
@@ -30,6 +30,7 @@ class SimDataEngine:
         self.meta_data = f"{self.config_name}_{self.NETWORK_TYPE}_{self.INPUT_DIM}_to_{self.OUTPUT_DIM}"
         self.cur_input = None
         self.cur_output = None
+        self.sim = Aircraft_Sim()
 
     def generate_dataset(self):
         # Training dataset
@@ -143,37 +144,51 @@ class SimDataEngine:
             _type_: _description_
         """
         # Initialize the initial conditons using numpy.random.uniform
-        ic_lla = np.array(
+        ic_arr = np.array(
             [self.randomize(self.constraints[key]) for key in self.constraints]
         )
+
+        # Decompose the initial condition array
+        p_E_E_BE_0 = ic_arr[0:3]
+        att_B_B_BN_0 = ic_arr[3:6]
+        v_E_B_BE_0 = ic_arr[6:9]
+        w_B_B_BE_0 = ic_arr[9:]
+
         # Initialize the simulation
-        sim = AircraftSimNoForces(ic_lla)
+        self.sim.set_initial_conditions(
+            p_E_E_BE_0, att_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0
+        )
         # Run the simulation
-        sim.run_simulation(self.run_time, 0, 0, 0, 0, np.array([0, 0, 0]))
-        if (itr + 1) % 10000 == 0:
-            sim.all_states_graph("verify")
+        self.sim.run_simulation(self.run_time, 0, 0, 0, 0, np.array([0, 0, 0]))
+
+        # # Defining an update frequency for verifying sim output
+        # if (itr + 1) % 1000 == 0:
+        #     self.sim.all_states_graph("verify")
+
         # Extract data from simulation
-        self._extract_sim_data(sim)
+        self._extract_sim_data()
+
+        # Skipping simulation output if it's empty
         if np.isnan(self.cur_output).any():
             print(self.cur_input)
             return False
         else:
             return True
 
-    def _extract_sim_data(self, sim: object):
+    def _extract_sim_data(self):
         """_summary_
 
         Args:
             sim (object): _description_
         """
         # Create lists of runs to vertical stack later
+        states = self.sim.state_vec
         if self.NETWORK_TYPE == "DNN":
-            self.cur_input = self.concatInputs(sim.lla_states_init).squeeze()
-            self.cur_output = sim.get_all_states()[1::]
+            self.cur_input = self.concatInputs(states[0]).squeeze()
+            self.cur_output = states
         else:
-            self.cur_input = sim.lla_states_init.squeeze()
-            self.cur_output = sim.get_all_states()
-            self.cur_output = self.cur_output[1::]
+            self.cur_input = states[0].squeeze()
+            self.cur_output = states[1:]
         if self.shuffle:
             self.shuffle_data()
 
@@ -256,7 +271,7 @@ class SimDataEngine:
         dirs = os.listdir(folder_path)
 
         # Filter files based on compatible data
-        filtered_dirs = [d for d in dirs if self.meta_data == d[16::]]
+        filtered_dirs = [d for d in dirs if self.meta_data == d[16:]]
 
         # Sort files by datetime
         sorted_dirs = sorted(filtered_dirs, key=self.parse_datetime, reverse=True)
