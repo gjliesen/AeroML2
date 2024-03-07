@@ -6,15 +6,11 @@ from plotly.subplots import make_subplots
 from scipy.integrate import solve_ivp
 import pyproj
 
+# from .aero_parameters_old import Aero_Parameters
 from .aero_parameters import Aero_Parameters
 
-transformer = pyproj.Transformer.from_crs(
-    {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"},
-    {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
-)
 
-
-@jit
+@jit(nopython=True)
 def quat_to_euler(quat):
     """
     Converts quaternion to euler angles and returns as numpy array
@@ -34,7 +30,7 @@ def quat_to_euler(quat):
     return np.array([phi, theta, psi])
 
 
-@jit
+@jit(nopython=True)
 def quat_DCM(q):
     """
     This function builds a DCM, C_BN, from a quaternion
@@ -74,7 +70,7 @@ def matrix_matrix(x, y):
     return x @ y
 
 
-@jit
+@jit(nopython=True)
 def euler_to_quat(phi, theta, psi):
     cphi_2 = cos(phi * 0.5)
     cpsi_2 = cos(psi * 0.5)
@@ -91,7 +87,7 @@ def euler_to_quat(phi, theta, psi):
     return np.array([q_0, q_1, q_2, q_3])
 
 
-@jit
+@jit(nopython=True)
 def euler_to_dcm(phi, theta, psi):
     # Taking in Euler angles to get DCM
     x_11 = cos(theta) * cos(psi)
@@ -111,7 +107,7 @@ def euler_to_dcm(phi, theta, psi):
     return c_n_b
 
 
-@jit
+@jit(nopython=True)
 def ecef_to_ned_matrix(lat, lon):
     lat = np.deg2rad(lat)
     lon = np.deg2rad(lon)
@@ -131,7 +127,7 @@ def ecef_to_ned_matrix(lat, lon):
     return C_EN
 
 
-@jit
+@jit(nopython=True)
 def get_w_B_B_BE_matrix(P, Q, R):
     w_B_B_BE_matrix = np.array(
         [[0, -P, -Q, -R], [P, 0, R, -Q], [Q, -R, 0, P], [R, Q, -P, 0]]
@@ -139,13 +135,13 @@ def get_w_B_B_BE_matrix(P, Q, R):
     return w_B_B_BE_matrix
 
 
-@jit
+@jit(nopython=True)
 def cross_product_matrix(vec):
     cpm = np.array([[0, -vec[2], vec[1]], [vec[2], 0, -vec[0]], [-vec[1], vec[0], 0]])
     return cpm
 
 
-@jit
+@jit(nopython=True)
 def body_to_wind_matrix(alpha, beta):
     sacb = sin(alpha) * cos(beta)
     cacb = cos(alpha) * cos(beta)
@@ -163,7 +159,7 @@ def body_to_wind_matrix(alpha, beta):
     return C_BW
 
 
-@jit
+@jit(nopython=True)
 def h_theta_matrix(phi, theta):
     x_11 = 1
     x_12 = tan(theta) * sin(phi)
@@ -183,9 +179,7 @@ def h_theta_matrix(phi, theta):
 # noinspection DuplicatedCode
 class Aircraft_Sim:
     # noinspection SpellCheckingInspection
-    def __init__(
-        self, x_E_E_BE_0, att_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0, Fext_B_0, Mext_B_0, g_n
-    ):
+    def __init__(self):
         # noinspection SpellCheckingInspection
         """
         takes initial aircraft states and runs 6DOF simulation
@@ -198,13 +192,7 @@ class Aircraft_Sim:
         :param Mext_B_0: initial external moments of aircraft
         :param g_n: gravity
         """
-        # Initial Values
-        phi, theta, psi = att_B_B_BN_0
-        attQuat_B_B_BN_0 = euler_to_quat(phi, theta, psi)
-
-        self.states_init = np.hstack(
-            (x_E_E_BE_0, attQuat_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0)
-        )
+        self.states_init = None
         self.init_step = True
         self.tk_flag = True
         self.lla_flag = True
@@ -234,57 +222,86 @@ class Aircraft_Sim:
         self.k_d_roll = None
         self.k_p_roll = None
 
-        # Constants
-        self.g_n = np.array([0, 0, g_n])
-        self.Fext_B = Fext_B_0
-        self.Mext_B = Mext_B_0
+        # Initialize aero_parameters
         self.aircraft = Aero_Parameters()
 
         # Aerodynamics
         self.v_inf = None
         self.v_b_a = None
         self.v_a_n_gust = None
-        self.v_a_n = np.array([0, 0, 0])
+        self.v_a_n = np.array([0.0, 0.0, 0.0])
         self.alpha = None
         self.beta = None
         self.solver_time = []
-        # Stored States
 
+        # solver states
+        self.output_states = np.zeros((13,))
         # Main States
-        self.x_E_E_BE_states = x_E_E_BE_0
-        self.attQuat_B_B_BN_states = attQuat_B_B_BN_0
-        self.v_E_B_BE_states = v_E_B_BE_0
-        self.w_B_B_BE_states = w_B_B_BE_0
+        self.x_E_E_BE_states = None
+        self.attQuat_B_B_BN_states = None
+        self.v_E_B_BE_states = None
+        self.w_B_B_BE_states = None
 
         # Secondary States
         self.att_B_B_BN_states = []
         self.p_E_E_BE_states = []
         self.w_B_BA_states = []
 
+        # Transformer
+        self.transformer = pyproj.Transformer.from_crs(
+            {"proj": "geocent", "ellps": "WGS84", "datum": "WGS84"},
+            {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
+        )
+
         self.time = None
+        self.state_vec = None
+
+    def set_initial_conditions(
+        self,
+        position,
+        att_B_B_BN_0,
+        v_E_B_BE_0,
+        w_B_B_BE_0,
+        Fext_B_0=np.array([0, 0, 0]),
+        Mext_B_0=np.array([0, 0, 0]),
+        g_n=9.81,
+        isLLA=True,
+    ):
+        if isLLA:
+            x_E_E_BE_0 = self.transformer.transform(*position)
+        else:
+            x_E_E_BE_0 = position
+
+        # Initial Values
+        attQuat_B_B_BN_0 = euler_to_quat(*att_B_B_BN_0)
+
+        self.states_init = np.hstack(
+            (x_E_E_BE_0, attQuat_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0)
+        )
+
+        # Constants
+        self.g_n = np.array([0, 0, g_n])
+        self.Fext_B = Fext_B_0
+        self.Mext_B = Mext_B_0
 
     def aero_inputs(self):
         """
         Calculates the V_inf, AOA, and side slip of aircraft at each time step
         :return:
         """
-        self.v_b_a = self.v_E_B_BE - matrix_vector(
-            self.C_BN, self.v_a_n.astype(np.float64)
-        )
+        # print(type(self.v_a_n))
+        self.v_b_a = self.v_E_B_BE - matrix_vector(self.C_BN, self.v_a_n)
 
         self.v_inf = np.linalg.norm(self.v_b_a)
-        if np.isnan(self.v_inf):
-            self.v_inf = 0
+        if self.v_inf == 0:
             self.beta = 0
             self.alpha = 0
         else:
             self.alpha = np.arctan2(self.v_b_a[2], self.v_b_a[0])
             self.beta = np.arcsin(self.v_b_a[1] / self.v_inf)
 
-        w_B_BA = np.array(
-            [self.v_inf, self.alpha * (180 / np.pi), self.beta * (180 / np.pi)]
-        )
-        self.w_B_BA_states.append(w_B_BA)
+        # w_B_BA = np.array([self.v_inf, np.degrees(self.alpha), np.degrees(self.beta)])
+        # self.w_B_BA_states.append(w_B_BA)
 
     def translational_kinematics(self):
         """
@@ -298,15 +315,9 @@ class Aircraft_Sim:
 
         # We currently have the aircraft position in cartesian coordinates
         # we need to convert this to Polar to get the new DCM.
+        lat, lon, _ = self.transformer.transform(*self.x_E_E_BE, radians=False)
 
-        lat, lon, alt = transformer.transform(
-            self.x_E_E_BE[0], self.x_E_E_BE[1], self.x_E_E_BE[2], radians=False
-        )
-
-        # lat, lon, alt = navpy.ecef2lla(self.x_E_E_BE, 'deg')
-        p_E_E_BE = np.array([lat, lon, alt])
-
-        self.p_E_E_BE_states.append(p_E_E_BE)
+        # lat, lon, _ = navpy.ecef2lla(self.x_E_E_BE, "deg")
         self.C_EN = ecef_to_ned_matrix(lat, lon)
 
         # The C_EB matrix to get the velocity given in the Body coordinate
@@ -326,9 +337,7 @@ class Aircraft_Sim:
         The return variable is later integrated to get the next attitude state
         of the aircraft in quaternion form
         """
-
-        P, Q, R = self.w_B_B_BE
-        w_B_B_BE_matrix = get_w_B_B_BE_matrix(P, Q, R)
+        w_B_B_BE_matrix = get_w_B_B_BE_matrix(*self.w_B_B_BE)
 
         attQuatDot_B_B_BN = 0.5 * (w_B_B_BE_matrix @ self.attQuat_B_B_BN.T)
 
@@ -406,12 +415,13 @@ class Aircraft_Sim:
         self.C_NB = self.C_BN.T
 
         # Aerodynamics:
-        self.solver_time.append(t)
+        # self.solver_time.append(t)
         if t >= 20:
             self.v_a_n = self.v_a_n_gust
 
         self.aero_inputs()
         self.C_BW = body_to_wind_matrix(self.alpha, self.beta)
+
         # Pitch Damper
         att_B_B_BN = quat_to_euler(self.attQuat_B_B_BN)
 
@@ -438,11 +448,14 @@ class Aircraft_Sim:
         vDot_E_B_BE = self.translational_dynamics()
         wDot_B_B_BE = self.rotational_dynamics()
 
-        # Final State Matrix
-        output_states = np.hstack(
-            (xDot_E_E_BE, attQuatDot_B_B_BN, vDot_E_B_BE, wDot_B_B_BE)
-        )
-        return output_states
+        # Final State Matrix returning self.output states to stop allocating memory
+        # for new numpy arrays
+        self.output_states[:3] = xDot_E_E_BE
+        self.output_states[3:7] = attQuatDot_B_B_BN
+        self.output_states[7:10] = vDot_E_B_BE
+        self.output_states[10:] = wDot_B_B_BE
+
+        return self.output_states
 
     def run_simulation(self, time, k_d_pitch, k_p_pitch, k_d_roll, k_p_roll, v_a_n):
         # Setting Control Gains
@@ -456,21 +469,34 @@ class Aircraft_Sim:
         self.time = np.arange(0, time, 0.01)
 
         result = solve_ivp(
-            self.aircraft_EOM, t_span=[0, time], t_eval=self.time, y0=self.states_init
+            self.aircraft_EOM,
+            t_span=[0, time],
+            t_eval=self.time,
+            y0=self.states_init,
         )
 
         state_sol = result.y.T
-        self.x_E_E_BE_states = state_sol[0::, 0:3]
-        self.attQuat_B_B_BN_states = state_sol[0::, 3:7]
-        for states in self.attQuat_B_B_BN_states:
-            row = quat_to_euler(states)
-            self.att_B_B_BN_states.append(row)
+        self.x_E_E_BE_states = state_sol[0:, 0:3]
+        self.attQuat_B_B_BN_states = state_sol[0:, 3:7]
 
-        self.att_B_B_BN_states = np.array(self.att_B_B_BN_states)
-        self.w_B_BA_states = np.array(self.w_B_BA_states)
-        self.p_E_E_BE_states = np.array(self.p_E_E_BE_states)
-        self.v_E_B_BE_states = state_sol[0::, 7:10]
-        self.w_B_B_BE_states = state_sol[0::, 10:13]
+        self.att_B_B_BN_states = np.apply_along_axis(
+            quat_to_euler, 1, self.attQuat_B_B_BN_states
+        )
+        # self.w_B_BA_states = np.array(self.w_B_BA_states)
+        self.p_E_E_BE_states = np.vstack(
+            self.transformer.transform(*self.x_E_E_BE_states.T, radians=False)
+        ).T
+        self.v_E_B_BE_states = state_sol[0:, 7:10]
+        self.w_B_B_BE_states = state_sol[0:, 10:13]
+
+        self.state_vec = np.hstack(
+            (
+                self.p_E_E_BE_states,
+                self.attQuat_B_B_BN_states,
+                self.v_E_B_BE_states,
+                self.w_B_B_BE_states,
+            )
+        )
 
     def state_graph(self, state, test_case):
         """
@@ -519,16 +545,16 @@ class Aircraft_Sim:
         fig = go.Figure()
 
         # if state == "x_E_E_BE":
-        #     states[0::, 2] = states[0::, 2] - 6378e3
-        if state == "w_B_BA" or state == "p_E_E_BE":
+        #     states[0:, 2] = states[0:, 2] - 6378e3
+        if state == "w_B_BA":
             time = self.solver_time
         else:
             time = self.time
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 0], name=x_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0:, 0], name=x_dict[state]))
 
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 1], name=y_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0:, 1], name=y_dict[state]))
 
-        fig.add_trace(go.Scattergl(x=time, y=states[0::, 2], name=z_dict[state]))
+        fig.add_trace(go.Scattergl(x=time, y=states[0:, 2], name=z_dict[state]))
 
         html_title = state + "_" + test_case + ".html"
         fig.write_html(html_title)
@@ -597,15 +623,15 @@ class Aircraft_Sim:
                 time = self.time
 
             fig.add_trace(
-                go.Scattergl(x=time, y=states[0::, 0], name=x_dict[state]), row=i, col=1
+                go.Scattergl(x=time, y=states[0:, 0], name=x_dict[state]), row=i, col=1
             )
 
             fig.add_trace(
-                go.Scattergl(x=time, y=states[0::, 1], name=y_dict[state]), row=i, col=1
+                go.Scattergl(x=time, y=states[0:, 1], name=y_dict[state]), row=i, col=1
             )
 
             fig.add_trace(
-                go.Scattergl(x=time, y=states[0::, 2], name=z_dict[state]), row=i, col=1
+                go.Scattergl(x=time, y=states[0:, 2], name=z_dict[state]), row=i, col=1
             )
 
             i += 1
