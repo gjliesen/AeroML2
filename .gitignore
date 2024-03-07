@@ -13,3 +13,6 @@ configs/__pycache__
 test_data_plots/
 tuner/
 __pycache__/
+*.prof
+profiles/
+profiles/*.prof
