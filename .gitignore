@@ -1,6 +1,6 @@
 *.pem
 data_archive/
-data/
+/data/
 model_checkpoints/
 Training_Data/
 training_data
