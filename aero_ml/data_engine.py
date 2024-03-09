@@ -19,7 +19,7 @@ def timeit(f):
     return timed
 
 
-class SimDataEngine:
+class DataEngine:
     def __init__(self, data_config: dict):
         # dynamically etting the configuration attributes
         for key, value in data_config.items():

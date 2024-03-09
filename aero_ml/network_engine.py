@@ -5,7 +5,7 @@ import tensorflow as tf
 import keras_tuner as kt
 import matplotlib.pyplot as plt
 from datetime import datetime
-from aero_ml.data.sim_data_engine import SimDataEngine
+from aero_ml.data_engine import DataEngine
 
 # pylint: disable=E1101
 
@@ -285,7 +285,7 @@ class SimNetworkEngine:
         # Sort files by datetime
         # pylint: disable=E0602
         # Pylance: disable=reportUndefinedVariable
-        sorted_files = sorted(files, key=SimDataEngine.parse_datetime, reverse=True)
+        sorted_files = sorted(files, key=DataEngine.parse_datetime, reverse=True)
 
         # Return the most recent file
         if sorted_files:

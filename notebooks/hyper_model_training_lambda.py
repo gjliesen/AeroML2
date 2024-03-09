@@ -1,8 +1,8 @@
 # Library imports
 from datetime import datetime
-from ..sim_data_engine import SimDataEngine
-from ..sim_network_engine import SimNetworkEngine
-from ..sim_test_engine import SimTestEngine
+from ..aero_ml.data_engine import DataEngine
+from ..aero_ml.network_engine import SimNetworkEngine
+from ..aero_ml.test_engine import SimTestEngine
 
 # Create the directories needed to store model data
 tuner_dir = "/home/ubuntu/aircraft-nn-training-data/tuner"
@@ -18,10 +18,10 @@ batch_size = 2048
 
 # Load the training and validation datasets
 train_dataset = (
-    SimDataEngine.load_dataset("Train", data_dir=training_dir).cache().batch(batch_size)
+    DataEngine.load_dataset("Train", data_dir=training_dir).cache().batch(batch_size)
 )
 val_dataset = (
-    SimDataEngine.load_dataset("Val", data_dir=training_dir).cache().batch(batch_size)
+    DataEngine.load_dataset("Val", data_dir=training_dir).cache().batch(batch_size)
 )
 
 # Specifying non-default hyperparameters
