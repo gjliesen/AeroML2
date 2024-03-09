@@ -5,7 +5,7 @@ import tensorflow as tf
 import keras_tuner as kt
 import matplotlib.pyplot as plt
 from datetime import datetime
-from sim_data_engine import SimDataEngine
+from aero_ml.data.sim_data_engine import SimDataEngine
 
 # pylint: disable=E1101
 
