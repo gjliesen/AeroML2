@@ -30,9 +30,10 @@ class SimDataEngine:
         self.meta_data = f"{self.config_name}_{self.NETWORK_TYPE}_{self.INPUT_DIM}_to_{self.OUTPUT_DIM}"
         self.cur_input = None
         self.cur_output = None
-        self.sim = Aircraft_Sim()
+        self.sim = None
 
     def generate_dataset(self):
+        self.sim = Aircraft_Sim()
         # Training dataset
         dir_name = f"{self.date_str}_{self.meta_data}"
 
@@ -77,7 +78,6 @@ class SimDataEngine:
         Raises:
             ValueError: _description_
         """
-
         for input_state, output_state in zip(self.cur_input, self.cur_output):
             data = {
                 "input_state": tf.train.Feature(
@@ -99,18 +99,18 @@ class SimDataEngine:
         Raises:
             ValueError: _description_
         """
+        states_input = tf.convert_to_tensor(self.cur_input, dtype=tf.float32)
+        states_output = tf.convert_to_tensor(self.cur_output, dtype=tf.float32)
+
+        serialized_input = tf.io.serialize_tensor(states_input)
+        serialized_output = tf.io.serialize_tensor(states_output)
+
         data = {
             "input_state": tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.cur_input.flatten())
+                bytes_list=tf.train.BytesList(value=[serialized_input.numpy()])
             ),
             "output_state": tf.train.Feature(
-                float_list=tf.train.FloatList(value=self.cur_output.flatten())
-            ),
-            "input_shape": tf.train.Feature(
-                int64_list=tf.train.Int64List(value=list(self.cur_input.shape))
-            ),
-            "output_shape": tf.train.Feature(
-                int64_list=tf.train.Int64List(value=list(self.cur_output.shape))
+                bytes_list=tf.train.BytesList(value=[serialized_output.numpy()])
             ),
         }
 
@@ -187,7 +187,7 @@ class SimDataEngine:
             self.cur_input = self.concatInputs(states[0]).squeeze()
             self.cur_output = states
         else:
-            self.cur_input = states[0].squeeze()
+            self.cur_input = states[0].reshape(-1, 13)
             self.cur_output = states[1:]
         if self.shuffle:
             self.shuffle_data()
@@ -242,15 +242,13 @@ class SimDataEngine:
             _type_: _description_
         """
         feature = {
-            "input_state": tf.io.FixedLenFeature([self.INPUT_DIM], tf.float32),
-            "output_state": tf.io.FixedLenFeature([100, self.OUTPUT_DIM], tf.float32),
-            "input_shape": tf.io.FixedLenFeature([1], tf.int64),
-            "output_shape": tf.io.FixedLenFeature([2], tf.int64),
+            "input_state": tf.io.FixedLenFeature([], tf.string),
+            "output_state": tf.io.FixedLenFeature([], tf.string),
         }
         example = tf.io.parse_single_example(serialized_example, feature)
 
-        input_state = tf.reshape(example["input_state"], example["input_shape"])
-        output_state = tf.reshape(example["output_state"], example["output_shape"])
+        input_state = tf.io.parse_tensor(example["input_state"], out_type=tf.float32)
+        output_state = tf.io.parse_tensor(example["output_state"], out_type=tf.float32)
 
         return input_state, output_state
 
@@ -341,7 +339,12 @@ class SimDataEngine:
             normalized_example = tf.multiply(example, max_values_tensor)
         else:
             normalized_example = tf.divide(example, max_values_tensor)
-        normalized_example = tf.squeeze(normalized_example)
+
+        if self.NETWORK_TYPE == "DNN":
+            normalized_example = tf.squeeze(normalized_example)
+        else:
+            normalized_example = tf.squeeze(normalized_example, axis=0)
+
         return normalized_example
 
     @staticmethod
