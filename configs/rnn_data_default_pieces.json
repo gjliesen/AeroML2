@@ -1,5 +1,5 @@
 {
- "config_name": "rnn_data_default",
+ "config_name": "rnn_data_default_pieces",
  "constraints": {
   "lat": [
    -10,
