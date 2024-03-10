@@ -17,3 +17,6 @@ __pycache__/
 profiles/
 profiles/*.prof
 archive/
+_profiles/
+_profiles/*.prof
+_archive/
