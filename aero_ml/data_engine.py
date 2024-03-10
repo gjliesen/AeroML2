@@ -2,7 +2,7 @@ import os
 import tensorflow as tf
 import numpy as np
 from datetime import datetime
-from aero_ml.utils import timeit
+from aero_ml.utils import timeit, parse_datetime
 from simulation.aircraft_sim import AircraftSim
 
 
@@ -13,6 +13,8 @@ class DataEngine:
     test_cases: int
     meta_data: str
     rnd_method: str
+    input_dim: int
+    output_dim: int
     input_norm_factors: list
     output_norm_factors: list
     constraints: dict
@@ -63,16 +65,15 @@ class DataEngine:
             for itr in range(iters):
                 valid = self.run_sim(itr)
                 if valid:
-                    self.write_example(tfrecord)
+                    self.write_example(tfrecord)  # type: ignore
                 if (itr + 1) % 500 == 0:
                     print(f"iteration: {itr+1} of {iters}")
 
-    def write_example(self, tfrecord):
+    def write_example(self, tfrecord: tf.io.TFRecordWriter):
         """Write example to tfrecord file
 
-        FF uses lists as inputs and outputs so the inputs and outputs are just
         Args:
-            tfrecord (typing.IO): tfrecord file to write to
+            tfrecord (tf.io.TFRecordWriter): tfrecord file to write to
         """
         raise NotImplementedError("write_example must be implemented in subclass")
 
@@ -187,7 +188,7 @@ class DataEngine:
             ValueError: dataset_type must be 'Train' or 'Val'
 
         Returns:
-            _type_: if a files are found it will return the most recent one, otherwise
+            str: if a files are found it will return the most recent one, otherwise
             it wil return nothing
         """
         # List all files in the directory
@@ -197,7 +198,7 @@ class DataEngine:
         filtered_dirs = [d for d in dirs if self.meta_data == d[16:]]
 
         # Sort files by datetime
-        sorted_dirs = sorted(filtered_dirs, key=self.parse_datetime, reverse=True)
+        sorted_dirs = sorted(filtered_dirs, key=parse_datetime, reverse=True)
 
         # check if the sorted files list is empty, raising error if true
         if not sorted_dirs:
@@ -265,17 +266,3 @@ class DataEngine:
         normalized_example = tf.squeeze(normalized_example)
 
         return normalized_example
-
-    @staticmethod
-    def parse_datetime(filename: str) -> datetime:
-        """parses the datetime strings in a folder
-
-        Args:
-            filename (str):
-
-        Returns:
-            datetime: list of datetimestrings
-        """
-        date_time_str = filename.split("_")[:2]
-        date_time_str = "_".join(date_time_str)
-        return datetime.strptime(date_time_str, "%m%d%Y_%H%M%S")
