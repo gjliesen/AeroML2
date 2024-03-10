@@ -6,25 +6,46 @@ from aero_ml.utils import timeit, parse_datetime
 from aero_ml.simulation.aircraft_sim import AircraftSim
 
 
-class DataEngine:
-    run_time: float
-    frequency: float
-    iterations: int
-    test_cases: int
-    meta_data: str
-    rnd_method: str
-    input_dim: int
-    output_dim: int
-    input_norm_factors: list
-    output_norm_factors: list
-    constraints: dict
-    shuffle: bool = False
+class BaseDataEngine:
+    config_name: str  # name of the configuration
+    config_dir: str  # directory of the configuration
+    input_dim: int  # input dimension of the network
+    output_dim: int  # output dimension of the network
+    run_time: float  # how long a simulation runs in seconds
+    frequency: float  # simulation time step in hz
+    iterations: int  # number of iterations to run the simulation
+    test_cases: int  # number of test cases to run
+    rnd_method: str  # method for randomizing initial conditions
+    input_norm_factors: list  # list of max values for input normalization
+    output_norm_factors: list  # list of max values for output normalization
+    constraints: dict  # dictionary of constraints for randomization
+    shuffle: bool = False  # whether to shuffle the data
 
-    def __init__(
-        self,
-    ):
-        super().__init__()
-        self.de_date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+    def __init__(self, config: dict):
+        # Dynamically unpack the configuration dictionary into class attributes
+        valid_keys = [
+            "config_name",
+            "config_dir",
+            "input_dim",
+            "output_dim",
+            "run_time",
+            "frequency",
+            "iterations",
+            "test_cases",
+            "rnd_method",
+            "input_norm_factors",
+            "output_norm_factors",
+            "constraints",
+            "shuffle",
+        ]
+        for key in valid_keys:
+            setattr(self, key, config[key])
+
+        self.meta_data = (
+            f"{self.config_name}_{self.config_dir}_{self.input_dim}_to_"
+            f"{self.output_dim}"
+        )
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Data Engine Initialized")
 
     def generate_dataset(self):
@@ -33,7 +54,7 @@ class DataEngine:
         # Initialize the simulation object
         self.sim = AircraftSim()
         # Training dataset
-        dir_name = f"{self.de_date_str}_{self.meta_data}"
+        dir_name = f"{self.date_str}_{self.meta_data}"
 
         train_path = os.path.join(os.getcwd(), f"data/{dir_name}")
         os.makedirs(train_path, exist_ok=True)

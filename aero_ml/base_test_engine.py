@@ -9,7 +9,7 @@ from plotly.subplots import make_subplots
 from aero_ml.simulation.aircraft_sim import quat_to_euler
 
 
-class TestEngine:
+class BaseTestEngine:
     """
     class for testing the model on the test data and plotting the results.
     """
@@ -22,9 +22,18 @@ class TestEngine:
 
     def __init__(
         self,
+        config,
         data_eng,
         att_mode: str = "Euler",
     ):
+        valid_keys = [
+            "input_features_euler",
+            "output_features_euler",
+            "input_features",
+            "output_features",
+        ]
+        for key in valid_keys:
+            setattr(self, key, config[key])
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         self.data_eng = data_eng
         # dynamically etting the configuration attributes

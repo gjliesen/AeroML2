@@ -27,7 +27,7 @@ class dummy_context_mgr:
         return False
 
 
-class NetworkEngine:
+class BaseNetworkEngine:
     """
     Base class for creating and tuning neural networks, contains methods for
     hyperparameter tuning and model training. The class is designed to be inherited
@@ -36,32 +36,50 @@ class NetworkEngine:
     which raise value errors if they are not overwritten
     """
 
-    config_name: str
-    input_dim: int
-    output_dim: int
-    loss_fn_str: str
-    optimizer: str
-    metrics: list
-    tuner_dir: str
-    width_range: list
-    depth_range: list
-    activation_fns: list
-    kernel_inits: list
-    bias_inits: list
-    learning_rates: list
-    reg_range: list
+    config_name: str  # name of the configuration
+    input_dim: int  # number of input features
+    output_dim: int  # number of output features
+    loss_fn_str: str  # string representation of the loss function
+    optimizer: str  # string representation of the optimizer
+    metrics: list  # list of metrics to use
+    tuner_dir: str  # directory to save the tuner
+    width_range: list  # list of possible widths for the network
+    depth_range: list  # list of possible depths for the network
+    activation_fns: list  # list of possible activation functions
+    kernel_inits: list  # list of possible kernel initializers
+    bias_inits: list  # list of possible bias initializers
+    learning_rates: list  # list of possible learning rates
+    reg_range: list  # list of possible regularization values
 
-    def __init__(self):
+    def __init__(self, config: dict):
         """Initializes the NetworkEngine class, sets the loss function to a callable if
         it is a custom loss function, otherwise the string is kept as is. Also sets the
         date string to the current date and time"""
-        super().__init__()
+        # Dynamically unpack the configuration dictionary into class attributes
+        valid_keys = [
+            "config_name",
+            "input_dim",
+            "output_dim",
+            "loss_fn_str",
+            "optimizer",
+            "metrics",
+            "width_range",
+            "depth_range",
+            "activation_fns",
+            "kernel_inits",
+            "bias_inits",
+            "learning_rates",
+            "reg_range",
+        ]
+        for key in valid_keys:
+            setattr(self, key, config[key])
+
         if self.loss_fn_str == "rmse":
             self.loss_fn = root_mean_squared_error
         else:
             self.loss_fn = self.loss_fn_str
         # convertings string optimizer to actual function
-        self.net_date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Network Engine initialized")
 
     def choose_distribution_strategy(self) -> typing.Callable:
@@ -131,9 +149,9 @@ class NetworkEngine:
         Returns:
             Tuner: Keras tuner object to be used for hyperparameter tuning
         """
-        os.makedirs(self.tuner_dir, exist_ok=True)
+        os.makedirs(directory, exist_ok=True)
         if project_name == "":
-            project_name = f"{self.net_date_str}_{self.config_name}"
+            project_name = f"{self.date_str}_{self.config_name}"
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
