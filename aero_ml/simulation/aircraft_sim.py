@@ -254,7 +254,7 @@ class AircraftSim:
             {"proj": "latlong", "ellps": "WGS84", "datum": "WGS84"},
         )
 
-        self.time = None
+        self.t_vec = None
         self.state_vec = None
 
     def set_initial_conditions(
@@ -458,7 +458,16 @@ class AircraftSim:
 
         return self.output_states
 
-    def run_simulation(self, time, k_d_pitch, k_p_pitch, k_d_roll, k_p_roll, v_a_n):
+    def run_simulation(
+        self,
+        run_time: float,
+        k_d_pitch: float = 0.0,
+        k_p_pitch: float = 0.0,
+        k_d_roll: float = 0.0,
+        k_p_roll: float = 0.0,
+        v_a_n: np.ndarray = np.zeros((1, 3)),
+        frequency: float = 0.01,
+    ):
         # Setting Control Gains
         self.k_d_pitch = k_d_pitch
         self.k_p_pitch = k_p_pitch
@@ -467,12 +476,12 @@ class AircraftSim:
         self.v_a_n_gust = v_a_n
 
         # Defining time array
-        self.time = np.arange(0, time, 0.01)
+        self.t_vec = np.arange(0, run_time + frequency, frequency)
 
         result = solve_ivp(
             self.aircraft_EOM,
-            t_span=[0, time],
-            t_eval=self.time,
+            t_span=[0, run_time],
+            t_eval=self.t_vec,
             y0=self.states_init,
         )
 
@@ -550,7 +559,7 @@ class AircraftSim:
         if state == "w_B_BA":
             time = self.solver_time
         else:
-            time = self.time
+            time = self.t_vec
         fig.add_trace(go.Scattergl(x=time, y=states[0:, 0], name=x_dict[state]))
 
         fig.add_trace(go.Scattergl(x=time, y=states[0:, 1], name=y_dict[state]))
@@ -621,7 +630,7 @@ class AircraftSim:
                 time = self.solver_time
                 print("entered")
             else:
-                time = self.time
+                time = self.t_vec
 
             fig.add_trace(
                 go.Scattergl(x=time, y=states[0:, 0], name=x_dict[state]), row=i, col=1
