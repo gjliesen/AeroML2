@@ -1,14 +1,16 @@
 import typing
-import numpy as np
-import pandas as pd
 import tensorflow as tf
-from aero_ml.data_engine import DataEngine
-from aero_ml.network_engine import NetworkEngine
-from aero_ml.test_engine import TestEngine
+from tensorflow import keras
+from aero_ml.base_data_engine import BaseDataEngine
+from aero_ml.base_network_engine import BaseNetworkEngine
+from aero_ml.base_test_engine import BaseTestEngine
 
 
-class S2VDataEngine(DataEngine):
-    def write_example(self, tfrecord: typing.IO):
+class DataEngine(BaseDataEngine):
+    def __init__(self, config: dict):
+        super().__init__(config)
+
+    def write_example(self, tfrecord: tf.io.TFRecordWriter):
         """Write example to tfrecord file
 
         S2V RNN uses tensors in the input and output so the numpy arrays are
@@ -54,13 +56,16 @@ class S2VDataEngine(DataEngine):
     def map_fn(
         self, serialized_example: tf.train.Example
     ) -> tuple[tf.Tensor, tf.Tensor]:
-        """_summary_
+        """Decodes the serialized example to tensors
+
+        The RNN uses tensors as input and output so the serialized tensors are parsed
+        from a bytes string to a tensors
 
         Args:
-            serialized_example (tf.train.Example): _description_
+            serialized_example (tf.train.Example): serialized example to be parsed
 
         Returns:
-            tuple[tf.Tensor, tf.Tensor]: _description_
+            tuple[tf.Tensor, tf.Tensor]: input and output tensors
         """
         feature = {
             "input_state": tf.io.FixedLenFeature([], tf.string),
@@ -106,9 +111,106 @@ class S2VDataEngine(DataEngine):
         return normalized_example
 
 
-class S2VNetworkEngine(NetworkEngine):
-    pass
+class NetworkEngine(BaseNetworkEngine):
+    def __init__(self, config: dict):
+        super().__init__(config)
+
+    def build_RNN(self, width):
+        keras.backend.clear_session()
+        # Define the distribution strategy for training
+        scope = self.choose_distribution_strategy()
+
+        input_shape = [None, 1, self.input_dim]
+        with scope():
+            model = keras.models.Sequential()
+            model.add(
+                keras.layers.LSTM(
+                    width,
+                    return_sequences=True,
+                    input_shape=input_shape,
+                )
+            )
+            model.add(keras.layers.LSTM(width, return_sequences=True))
+            model.add(keras.layers.Dense(13))
+            model.compile(
+                optimizer=self.optimizer,
+                loss=self.loss_fn,
+                metrics=self.metrics,
+            )
+            return model
+
+    def get_hypermodel_fn(self) -> typing.Callable:
+        strategy = self.choose_distribution_strategy()
+
+        def hypermodel_fn(hp):
+            hp_units = hp.Int(
+                "dense_width",
+                min_value=self.width_range[0],
+                max_value=self.width_range[1],
+                step=self.width_range[2],
+            )
+            hp_depth = hp.Int(
+                "depth",
+                min_value=self.depth_range[0],
+                max_value=self.depth_range[1],
+                step=self.depth_range[2],
+            )
+            hp_act = hp.Choice("dense_act_fn", values=self.activation_fns)
+            # hp_reg = hp.Float(
+            #     f"reg_param",
+            #     min_value=self.reg_range[0],
+            #     max_value=self.reg_range[1],
+            #     sampling=self.reg_range[2],
+            # )
+            hp_kernel = hp.Choice("dense_kernel", values=self.kernel_inits)
+            hp_bias = hp.Choice("dense_bias", values=self.bias_inits)
+            with strategy():
+                keras.backend.clear_session()
+                # Intialize model
+                model = keras.models.Sequential()
+
+                # add input layer
+                input_shape = [None, self.input_dim]
+                model.add(
+                    keras.layers.LSTM(
+                        units=hp_units,
+                        return_sequences=True,
+                        input_shape=input_shape,
+                        activation=hp_act,
+                        kernel_initializer=hp_kernel,
+                        bias_initializer=hp_bias,
+                    )
+                )
+                # add hidden layers
+                for i in range(hp_depth - 1):
+                    model.add(
+                        keras.layers.LSTM(
+                            units=hp_units,
+                            return_sequences=True,
+                            activation=hp_act,
+                            kernel_initializer=hp_kernel,
+                            bias_initializer=hp_bias,
+                        )
+                    )
+
+                # add output layer
+                model.add(keras.layers.Dense(13))
+
+                # Model Compilation
+                hp_learning_rate = hp.Choice(
+                    "learning_rate", values=self.learning_rates
+                )
+                model.compile(
+                    optimizer=self.optimizer,
+                    loss=self.loss_fn,
+                    metrics=self.metrics,
+                )
+                model.optimizer.learning_rate = hp_learning_rate
+                return model
+
+        return hypermodel_fn
 
 
-class S2VTestEngine(TestEngine):
-    pass
+class S2VTestEngine(BaseTestEngine):
+    def __init__(self, config: dict, data_engine: DataEngine):
+        super().__init__(config, data_engine)
