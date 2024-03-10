@@ -4,15 +4,18 @@ from tensorflow import keras
 import tensorflow as tf
 import keras_tuner as kt
 import matplotlib.pyplot as plt
+import typing
 from datetime import datetime
-from aero_ml.data_engine import DataEngine
+from aero_ml.utils import get_most_recent
 
-# pylint: disable=E1101
+Tuner = typing.Union[kt.Hyperband, kt.RandomSearch, kt.BayesianOptimization, None]
 
 
 @keras.saving.register_keras_serializable(name="rmse")
 def root_mean_squared_error(y_true, y_pred):
-    return tf.sqrt(tf.reduce_mean(tf.square(y_pred - y_true)))
+    return tf.sqrt(
+        tf.reduce_mean(tf.square(y_pred - y_true))
+    )  # noinspection PyArgumentList
 
 
 # Dummy context manager for use when no strategy is provided
@@ -25,15 +28,36 @@ class dummy_context_mgr:
 
 
 class NetworkEngine:
-    def __init__(self, network_config):
-        for key, value in network_config.items():
-            setattr(self, key, value)
-        if self.loss_fn == "rmse":
+    config_name: str
+    input_dim: int
+    output_dim: int
+    loss_fn_str: str
+    optimizer: str
+    metrics: list
+    tuner_dir: str
+    width_range: list
+    depth_range: list
+    activation_fns: list
+    kernel_inits: list
+    bias_inits: list
+    learning_rates: list
+    reg_range: list
+
+    def __init__(self):
+        if self.loss_fn_str == "rmse":
             self.loss_fn = root_mean_squared_error
+        else:
+            self.loss_fn = self.loss_fn_str
         # convertings string optimizer to actual function
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
 
-    def choose_distribution_strategy(self):
+    def choose_distribution_strategy(self) -> typing.Callable:
+        """Detects and returns the appropriate distribution strategy for the current
+        environment.
+
+        Returns:
+            typing.Callable: strategy context manager
+        """
         # Check for TPU availability
         try:
             tpu = tf.distribute.cluster_resolver.TPUClusterResolver()
@@ -54,186 +78,46 @@ class NetworkEngine:
             return tf.distribute.get_strategy().scope
         return dummy_context_mgr
 
-    def build_RNN(self, width):
-        keras.backend.clear_session()
-        # Define the distribution strategy for training
-        scope = self.choose_distribution_strategy()
+    def get_hypermodel_fn(self) -> typing.Callable:
+        """Returns a function that creates a compiled model with tunable hyperparameters
 
-        input_shape = [None, 1, self.INPUT_DIM]
-        with scope():
-            model = keras.models.Sequential()
-            model.add(
-                keras.layers.LSTM(
-                    width,
-                    return_sequences=True,
-                    input_shape=input_shape,
-                )
-            )
-            model.add(keras.layers.LSTM(width, return_sequences=True))
-            model.add(keras.layers.Dense(13))
-            model.compile(
-                optimizer=self.optimizer,
-                loss=root_mean_squared_error,
-                metrics=self.metrics,
-            )
-            return model
-
-    def get_RNN_hypermodel_fn(self):
-        strategy = self.choose_distribution_strategy()
-
-        def hypermodel_fn(hp):
-            hp_units = hp.Int(
-                f"dense_width",
-                min_value=self.width_range[0],
-                max_value=self.width_range[1],
-                step=self.width_range[2],
-            )
-            hp_depth = hp.Int(
-                f"depth",
-                min_value=self.depth_range[0],
-                max_value=self.depth_range[1],
-                step=self.depth_range[2],
-            )
-            hp_act = hp.Choice(f"dense_act_fn", values=self.activation_fns)
-            # hp_reg = hp.Float(
-            #     f"reg_param",
-            #     min_value=self.reg_range[0],
-            #     max_value=self.reg_range[1],
-            #     sampling=self.reg_range[2],
-            # )
-            hp_kernel = hp.Choice(f"dense_kernel", values=self.kernel_inits)
-            hp_bias = hp.Choice(f"dense_bias", values=self.bias_inits)
-            with strategy():
-                keras.backend.clear_session()
-                # Intialize model
-                model = keras.models.Sequential()
-
-                # add input layer
-                input_shape = [None, self.INPUT_DIM]
-                model.add(
-                    keras.layers.LSTM(
-                        units=hp_units,
-                        return_sequences=True,
-                        input_shape=input_shape,
-                        activation=hp_act,
-                        kernel_initializer=hp_kernel,
-                        bias_initializer=hp_bias,
-                    )
-                )
-                # add hidden layers
-                for i in range(hp_depth - 1):
-                    model.add(
-                        keras.layers.LSTM(
-                            units=hp_units,
-                            return_sequences=True,
-                            activation=hp_act,
-                            kernel_initializer=hp_kernel,
-                            bias_initializer=hp_bias,
-                        )
-                    )
-
-                # add output layer
-                model.add(keras.layers.Dense(13))
-
-                # Model Compilation
-                hp_learning_rate = hp.Choice(
-                    "learning_rate", values=self.learning_rates
-                )
-                model.compile(
-                    optimizer=self.optimizer,
-                    loss=self.loss_fn,
-                    metrics=self.metrics,
-                )
-                model.optimizer.learning_rate = hp_learning_rate
-                return model
-
-        return hypermodel_fn
-
-    def get_DNN_hypermodel_fn(self):
-        strategy = self.choose_distribution_strategy()
-
-        def hypermodel_fn(hp):
-            keras.backend.clear_session()
-
-            with strategy():
-                model = keras.Sequential()
-                model.add(
-                    keras.Input(shape=(self.INPUT_DIM,), name="input_layer")
-                )  # add input layer
-                hp_units = hp.Int(
-                    f"dense_width",
-                    min_value=self.width_range[0],
-                    max_value=self.width_range[1],
-                    step=self.width_range[2],
-                )
-                hp_depth = hp.Int(
-                    f"depth",
-                    min_value=self.depth_range[0],
-                    max_value=self.depth_range[1],
-                    step=self.depth_range[2],
-                )
-                hp_act = hp.Choice(f"dense_act_fn", values=self.activation_fns)
-                hp_reg = hp.Float(
-                    f"reg_param",
-                    min_value=self.reg_range[0],
-                    max_value=self.reg_range[1],
-                    sampling=self.reg_range[2],
-                )
-                hp_kernel = hp.Choice(f"dense_kernel", values=self.kernel_inits)
-                hp_bias = hp.Choice(f"dense_bias", values=self.bias_inits)
-
-                # add hidden layers
-                for i in range(hp_depth - 1):
-                    model.add(
-                        keras.layers.Dense(
-                            hp_units,
-                            activation=hp_act,
-                            name=f"hidden_Layer_{i}",
-                            kernel_initializer=hp_kernel,
-                            bias_initializer=hp_bias,
-                            kernel_regularizer=keras.regularizers.l2(hp_reg),
-                            bias_regularizer=keras.regularizers.l2(hp_reg),
-                        )
-                    )
-                # add output layer
-                model.add(
-                    keras.layers.Dense(
-                        self.OUTPUT_DIM,
-                        activation=None,
-                        name=f"output_layer",
-                        kernel_initializer=hp_kernel,
-                        bias_initializer=hp_bias,
-                        kernel_regularizer=keras.regularizers.l2(hp_reg),
-                        bias_regularizer=keras.regularizers.l2(hp_reg),
-                    )
-                )
-
-                # Model Compilation
-                hp_learning_rate = hp.Choice(
-                    "learning_rate", values=self.learning_rates
-                )
-                model.compile(
-                    optimizer=self.optimizer,
-                    loss=self.loss_fn,
-                    metrics=self.metrics,
-                )
-                model.optimizer.learning_rate = hp_learning_rate
-                return model
-
-        return hypermodel_fn
+        Returns:
+            typing.Callable: function that returns a compiled model
+        """
+        raise NotImplementedError("get_hypermodel_fn must be implemented in subclass")
 
     def build_tuner(
         self,
-        hypermodel_fn,
-        tuner_type,
-        objective_metric="val_loss",
-        objective_minmax="min",
-        max_epochs=8,
-        factor=3,
-        directory="tuner",
-        overwrite=False,
-        project_name="",
-    ):
+        hypermodel_fn: typing.Callable,
+        tuner_type: str,
+        objective_metric: str = "val_loss",
+        objective_minmax: str = "min",
+        max_epochs: int = 8,
+        directory: str = "tuner",
+        overwrite: bool = False,
+        project_name: str = "",
+    ) -> Tuner:
+        """Builds a keras tuner object
+
+        Args:
+            hypermodel_fn (typing.Callable): function that returns a compiled model
+            tuner_type (str): type of tuner to use
+            objective_metric (str, optional): objective metric to optimize. Defaults to
+            "val_loss".
+            objective_minmax (str, optional): sets whether tuner objective is to
+            minimize or maximize the metric. Defaults to "min".
+            max_epochs (int, optional): maximum number of epochs to try. Defaults to 8.
+            factor (int, optional): tuning factor to use. Defaults to 3.
+            directory (str, optional): directory to save the tuner. Defaults to "tuner".
+            overwrite (bool, optional): whether to overwrite the tuner if it exists.
+            project_name (str, optional): name of the project. Defaults to "".
+
+        Raises:
+            ValueError: If an unsupported tuner type is provided by the user
+
+        Returns:
+            Tuner: Keras tuner object to be used for hyperparameter tuning
+        """
         os.makedirs(self.tuner_dir, exist_ok=True)
         if project_name == "":
             project_name = f"{self.date_str}_{self.config_name}"
@@ -241,99 +125,121 @@ class NetworkEngine:
         objective = kt.Objective(objective_metric, objective_minmax)
 
         if tuner_type == "hyperband":
-            tuner = kt.Hyperband(
-                hypermodel_fn,
-                objective=objective,
-                max_epochs=max_epochs,
-                factor=factor,
-                directory=directory,
-                project_name=project_name,
-                overwrite=overwrite,
-            )
+            tuner_cls = kt.Hyperband
         elif tuner_type == "randomsearch":
-            tuner = kt.RandomSearch(
-                hypermodel_fn,
-                objective=objective,
-                max_trials=max_epochs,
-                directory=directory,
-                project_name=project_name,
-                overwrite=overwrite,
-            )
+            tuner_cls = kt.RandomSearch
         elif tuner_type == "bayesian":
-            tuner = kt.BayesianOptimization(
-                hypermodel_fn,
-                objective=objective,
-                max_trials=max_epochs,
-                directory=directory,
-                project_name=project_name,
-                overwrite=overwrite,
-            )
+            tuner_cls = kt.BayesianOptimization
         else:
-            raise ValueError("Unsupported tuner type: " + tuner_type)
+            raise ValueError(f"Unsupported tuner type: {tuner_type}")
 
+        tuner = tuner_cls(
+            hypermodel_fn,
+            objective=objective,
+            max_trials=max_epochs,
+            directory=directory,
+            project_name=project_name,
+            overwrite=overwrite,
+        )
         return tuner
 
-    @staticmethod
-    def get_most_recent_tuner(folder_path: str):
+    def get_most_recent_tuner(self, folder_path: str) -> Tuner:
+        """Retrieves the most recent tuner from the specified directory
+
+        Args:
+            folder_path (str): path to the directory containing the tuner
+
+        Raises:
+            ValueError: folder_path must be a string
+            FileNotFoundError: No recent tuner found in the specified directory
+
+        Returns:
+            Tuner: Keras tuner object
+        """
         # Ensure the folder path is a string
         if not isinstance(folder_path, str):
             raise ValueError("folder_path must be a string")
 
-        # List all files in the directory
-        files = os.listdir(folder_path)
-
-        # Sort files by datetime
-        # pylint: disable=E0602
-        # Pylance: disable=reportUndefinedVariable
-        sorted_files = sorted(files, key=DataEngine.parse_datetime, reverse=True)
+        path = get_most_recent(folder_path)
 
         # Return the most recent file
-        if sorted_files:
-            path = os.path.join(folder_path, sorted_files[0])
-            return kt.load_tuner(path)
-        else:
-            raise FileNotFoundError("No recent tuner found in the specified directory")
+        return kt.load_tuner(path)
 
-    @staticmethod
-    def retrieve_tuner(path=None):
-        if path is None:
-            tuner = NetworkEngine.get_most_recent_tuner("tuner")
+    def retrieve_tuner(self, path: str = "") -> Tuner:
+        """Retrieves a tuner from the specified path or the most recent tuner from the
+        tuner directory
+
+        Args:
+            path (str, optional): path to the tuner. Defaults to "".
+
+        Returns:
+            Tuner: Keras tuner object
+        """
+        if path == "":
+            tuner = self.get_most_recent_tuner("tuner")
         else:
             tuner = kt.load_tuner(path)
         return tuner
 
-    @staticmethod
-    def eval_tuner(tuner=None, path=None):
+    def eval_tuner(self, tuner: Tuner = None, path: str = ""):
+        """prints the top ten hyperparmeter combinations from the tuner
+
+        Args:
+            tuner (Tuner, optional): Keras tuner object. Defaults to None.
+            path (str, optional): path to the tuner. Defaults to "".
+
+        Raises:
+            ValueError: Specify either "tuner" or "path", but not both.
+        """
         # Check if either tuner or path is provided, but not both
-        if (tuner is None and path is None) or (tuner is not None and path is not None):
+        if (tuner is None and path == "") or (tuner is not None and path != ""):
             raise ValueError('Specify either "tuner" or "path", but not both.')
 
         # If only path is provided, retrieve the tuner using the provided path
         if tuner is None:
-            tuner = NetworkEngine.retrieve_tuner(path)
+            tuner = self.retrieve_tuner(path)
 
-        hyper_params = tuner.get_best_hyperparameters(num_trials=10)
+        hyper_params = tuner.get_best_hyperparameters(num_trials=10)  # type: ignore
+
         for hyper_param in hyper_params:
             print(hyper_param.values)
 
     def train_tuned_model(
         self,
-        train_dataset,
-        val_dataset,
-        callbacks,
-        epochs=10,
-        tuner=None,
-        path=None,
-        tuner_trial=0,
-        model_dir="models",
-    ):
+        train_dataset: tf.data.Dataset,
+        val_dataset: tf.data.Dataset,
+        callbacks: list,
+        epochs: int = 10,
+        tuner: Tuner = None,
+        path: str = "",
+        tuner_trial: int = 0,
+        model_dir: str = "models",
+    ) -> tuple[keras.Model, dict]:
+        """Trains a model using the best hyperparameters found by the tuner
+
+        Args:
+            train_dataset (tf.data.Dataset): training dataset
+            val_dataset (tf.data.Dataset): validation dataset
+            callbacks (list): list of callbacks to use during training
+            epochs (int, optional): number of epochs to train. Defaults to 10.
+            tuner (Tuner, optional): Keras tuner object. Defaults to None.
+            path (str, optional): path to the tuner. Defaults to "".
+            tuner_trial (int, optional): trial number to use. Defaults to 0.
+            model_dir (str, optional): directory to save the model. Defaults to "models".
+
+        Raises:
+            ValueError: Specify either "tuner" or "path", but not both.
+
+        Returns:
+            tuple[keras.Model, dict]: trained model and history
+        """
         # Check if either tuner or path is provided, but not both
-        if (tuner is None and path is None) or (tuner is not None and path is not None):
+        if (tuner is None and path == "") or (tuner is not None and path != ""):
             raise ValueError('Specify either "tuner" or "path", but not both.')
 
         # If only path is provided, retrieve the tuner using the provided path
         if tuner is None:
-            tuner = NetworkEngine.retrieve_tuner(path)
+            tuner = self.retrieve_tuner(path)
 
         model_name = f"{self.date_str}_{self.config_name}"
 
@@ -353,8 +259,7 @@ class NetworkEngine:
 
         return (hypermodel, history)
 
-    @staticmethod
-    def plot_network_history(history):
+    def plot_network_history(self, history):
         epochs = history["epoch"]
         # Log plot
         plt.figure(figsize=(20, 8))
