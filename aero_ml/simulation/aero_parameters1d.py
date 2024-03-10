@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.linalg import block_diag
 from numba import jit
 from numba.experimental import jitclass
 from .jit_specs import surface_two_spec1d
@@ -208,7 +207,7 @@ class AeroSurface:
 
 class AeroParameters:
     def __init__(self):
-        self.mass_props = np.load("simulation/mass_props.npy")
+        self.mass_props = np.load("aero_ml/simulation/mass_props.npy")
         self.surfs = None
         self.x_cm = None
         self.J = None
