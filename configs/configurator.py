@@ -34,11 +34,12 @@ MAXIMUMS_EULER = {
 
 
 class Configurator:
-    def __init__(self, config_name: str):
+    def __init__(self, config_dir: str, config_name: str):
         self.config = dict(
             config_name=config_name,
+            config_dir=config_dir,
         )
-        self.fname = f"{config_name}.json"
+        self.fname = f"{config_dir}/{config_name}.json"
 
     def configure(self, network=None, dirs=None, tuner=None, data=None):
         if network is not None:
