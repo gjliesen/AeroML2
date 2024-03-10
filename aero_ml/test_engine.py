@@ -11,7 +11,7 @@ from simulation.aircraft_sim import quat_to_euler
 # pylint: disable=E1101
 
 
-class SimTestEngine:
+class TestEngine:
     def __init__(
         self,
         data_eng,

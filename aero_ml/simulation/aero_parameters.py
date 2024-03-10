@@ -2,7 +2,7 @@ import numpy as np
 from scipy.linalg import block_diag
 from numba import jit
 from numba.experimental import jitclass
-from .jit_specs import surface_two_spec
+from .jit_specs import aeroSurfaceSpec
 
 # import logging
 
@@ -232,7 +232,7 @@ class Surface_Two:
         self.M_surf_W[:, :] = self.CM * self.q_bar * self.Sref * self.surf_arr[0:, 0:1]
 
 
-class Aero_Parameters:
+class AeroParameters:
     def __init__(self):
         self.mass_props = np.load("simulation/mass_props.npy")
         self.surfs = None

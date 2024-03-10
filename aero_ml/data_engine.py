@@ -1,39 +1,35 @@
-import time
 import os
 import tensorflow as tf
 import numpy as np
-from simulation.aircraft_sim import Aircraft_Sim
 from datetime import datetime
-
-# pylint: disable=E1101
-
-
-def timeit(f):
-    def timed(*args, **kw):
-        ts = time.time()
-        result = f(*args, **kw)
-        te = time.time()
-        print(f"func:{f.__name__} took: {te-ts} sec")
-        return result
-
-    return timed
+from aero_ml.utils import timeit
+from simulation.aircraft_sim import AircraftSim
 
 
 class DataEngine:
-    def __init__(self, data_config: dict):
-        # dynamically etting the configuration attributes
-        for key, value in data_config.items():
-            setattr(self, key, value)
+    run_time: float
+    frequency: float
+    iterations: int
+    test_cases: int
+    meta_data: str
+    rnd_method: str
+    input_norm_factors: list
+    output_norm_factors: list
+    constraints: dict
+    shuffle: bool = False
+
+    def __init__(
+        self,
+    ):
         self.t_vec = np.arange(0, self.run_time + self.frequency, self.frequency)
 
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
-        self.meta_data = f"{self.config_name}_{self.NETWORK_TYPE}_{self.INPUT_DIM}_to_{self.OUTPUT_DIM}"
-        self.cur_input = None
-        self.cur_output = None
-        self.sim = None
 
     def generate_dataset(self):
-        self.sim = Aircraft_Sim()
+        """Function to generate the training and test datasets for the network."""
+
+        # Initialize the simulation object
+        self.sim = AircraftSim()
         # Training dataset
         dir_name = f"{self.date_str}_{self.meta_data}"
 
@@ -50,11 +46,16 @@ class DataEngine:
             self.write_tfrecords(f"test_{case}", test_path, 1)
 
     @timeit
-    def write_tfrecords(self, name: str, path, iters):
-        """_summary_
+    def write_tfrecords(self, name: str, path: str, iters: int):
+        """creates a directory for  the given path, runs the simulation for iters number
+        of times and writes the output to a tfrecord file
+
+        currently writing after each simulation to prevent issues with memory
 
         Args:
-            name (str): _description_
+            name (str): file name
+            path (os.PathLike): path to write the file
+            iters (int): number of times to run the simulation
         """
         print(f"starting write {name} records...")
         record_path = os.path.join(path, f"{name}.tfrecord")
@@ -62,86 +63,49 @@ class DataEngine:
             for itr in range(iters):
                 valid = self.run_sim(itr)
                 if valid:
-                    if self.NETWORK_TYPE == "DNN":
-                        self.write_DNN_example(tfrecord)
-                    elif self.NETWORK_TYPE == "RNN":
-                        self.write_RNN_example(tfrecord)
+                    self.write_example(tfrecord)
                 if (itr + 1) % 500 == 0:
                     print(f"iteration: {itr+1} of {iters}")
 
-    def write_DNN_example(self, tfrecord: object):
-        """_summary_
+    def write_example(self, tfrecord):
+        """Write example to tfrecord file
 
+        FF uses lists as inputs and outputs so the inputs and outputs are just
         Args:
-            tfrecord (object): _description_
-
-        Raises:
-            ValueError: _description_
+            tfrecord (typing.IO): tfrecord file to write to
         """
-        for input_state, output_state in zip(self.cur_input, self.cur_output):
-            data = {
-                "input_state": tf.train.Feature(
-                    float_list=tf.train.FloatList(value=input_state)
-                ),
-                "output_state": tf.train.Feature(
-                    float_list=tf.train.FloatList(value=output_state)
-                ),
-            }
-            example = tf.train.Example(features=tf.train.Features(feature=data))
-            tfrecord.write(example.SerializeToString())
+        raise NotImplementedError("write_example must be implemented in subclass")
 
-    def write_RNN_example(self, tfrecord: object):
-        """_summary_
+    def randomize(self, input_tup: tuple[float, float]) -> float:
+        """randomizes the initial conditions based on the given constraints
 
         Args:
-            tfrecord (object): _description_
-
-        Raises:
-            ValueError: _description_
-        """
-        states_input = tf.convert_to_tensor(self.cur_input, dtype=tf.float32)
-        states_output = tf.convert_to_tensor(self.cur_output, dtype=tf.float32)
-
-        serialized_input = tf.io.serialize_tensor(states_input)
-        serialized_output = tf.io.serialize_tensor(states_output)
-
-        data = {
-            "input_state": tf.train.Feature(
-                bytes_list=tf.train.BytesList(value=[serialized_input.numpy()])
-            ),
-            "output_state": tf.train.Feature(
-                bytes_list=tf.train.BytesList(value=[serialized_output.numpy()])
-            ),
-        }
-
-        example = tf.train.Example(features=tf.train.Features(feature=data))
-        tfrecord.write(example.SerializeToString())
-
-    def randomize(self, input_tup: tuple):
-        """_summary_
-
-        Args:
-            input_tup (tuple): _description_
+            input_tup (tuple[float, float]): tuple of min and max values for the
+            randomization if the method is "random" or the mean and standard deviation
+            if the method is "normal"
 
         Returns:
-            _type_: _description_
+            float: the randomized value
         """
         rng = np.random.default_rng()
-        if self.rnd_method == "random":
-            return rng.uniform(input_tup[0], input_tup[1])
-        elif self.rnd_method == "normal":
-            return rng.normal(input_tup[0], input_tup[1])
-        else:
-            print("unsupported method")
 
-    def run_sim(self, itr: int):
-        """_summary_
+        if self.rnd_method == "random":
+            rnd_fn = rng.uniform
+        elif self.rnd_method == "normal":
+            rnd_fn = rng.normal
+        else:
+            raise ValueError("rnd_method must be 'random' or 'normal'")
+
+        return rnd_fn(input_tup[0], input_tup[1])
+
+    def run_sim(self, itr: int) -> bool:
+        """Generate the initial conditions, run the simulation, and extract the data
 
         Args:
-            itr (int): _description_
+            itr (int): the current iteration of the simulation
 
         Returns:
-            _type_: _description_
+            bool: Boolean indicating if the simulation output is valid
         """
         # Initialize the initial conditons using numpy.random.uniform
         ic_arr = np.array(
@@ -166,7 +130,7 @@ class DataEngine:
         #     self.sim.all_states_graph("verify")
 
         # Extract data from simulation
-        self._extract_sim_data()
+        self.extract_data()
 
         # Skipping simulation output if it's empty
         if np.isnan(self.cur_output).any():
@@ -175,31 +139,21 @@ class DataEngine:
         else:
             return True
 
-    def _extract_sim_data(self):
-        """_summary_
-
-        Args:
-            sim (object): _description_
+    def extract_data(self):
         """
-        # Create lists of runs to vertical stack later
-        states = self.sim.state_vec
-        if self.NETWORK_TYPE == "DNN":
-            self.cur_input = self.concatInputs(states[0]).squeeze()
-            self.cur_output = states
-        else:
-            self.cur_input = states[0].reshape(-1, 13)
-            self.cur_output = states[1:]
-        if self.shuffle:
-            self.shuffle_data()
+        Extracts state vector from the simulation run and reshapes it to be used as
+        input and output for the network.
+        """
+        raise NotImplementedError("extract_sim_data must be implemented in subclass")
 
-    def concatInputs(self, inits: np.ndarray):
-        """_summary_
+    def concatInputs(self, inits: np.ndarray) -> np.ndarray:
+        """Concatenates the input data with the time vector
 
         Args:
-            inits (np.ndarray): _description_
+            inits (np.ndarray): numpy array of initial conditions
 
         Returns:
-            _type_: _description_
+            np.ndarray: numpy array of initial conditions with time vector
         """
         # Add concatInputs function from old file to stack input instances
         col_concat = np.reshape(inits, (len(inits), 1))
@@ -209,51 +163,21 @@ class DataEngine:
         return arr
 
     def shuffle_data(self):
-        """_summary_"""
+        """Shuffles the input and output data."""
         # Define indices array
         indices = np.arange(self.cur_input.shape[0])
         np.random.shuffle(indices)
         self.cur_input = self.cur_input[indices]
         self.cur_output = self.cur_output[indices]
 
-    def DNN_map_fn(self, serialized_example):
-        """_summary_
-
-        Args:
-            serialized_example (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
-        feature = {
-            "input_state": tf.io.FixedLenFeature([self.INPUT_DIM], tf.float32),
-            "output_state": tf.io.FixedLenFeature([self.OUTPUT_DIM], tf.float32),
-        }
-        example = tf.io.parse_single_example(serialized_example, feature)
-        return example["input_state"], example["output_state"]
-
-    def RNN_map_fn(self, serialized_example):
-        """_summary_
-
-        Args:
-            serialized_example (_type_): _description_
-
-        Returns:
-            _type_: _description_
-        """
-        feature = {
-            "input_state": tf.io.FixedLenFeature([], tf.string),
-            "output_state": tf.io.FixedLenFeature([], tf.string),
-        }
-        example = tf.io.parse_single_example(serialized_example, feature)
-
-        input_state = tf.io.parse_tensor(example["input_state"], out_type=tf.float32)
-        output_state = tf.io.parse_tensor(example["output_state"], out_type=tf.float32)
-
-        return input_state, output_state
+    def map_fn(
+        self, serialized_example: tf.train.Example
+    ) -> tuple[tf.Tensor, tf.Tensor]:
+        raise NotImplementedError("map_fn must be implemented in subclass")
 
     def get_most_recent_dataset(self, folder_path: str = "data") -> str:
-        """Searches a given folder and dataset and looks for the most recently generated one
+        """Searches a given folder and dataset and looks for the most recently
+        generated one
 
         Args:
             folder_path (str): path to folder to search in
@@ -263,7 +187,8 @@ class DataEngine:
             ValueError: dataset_type must be 'Train' or 'Val'
 
         Returns:
-            _type_: if a files are found it will return the most recent one, otherwise it wil return nothing
+            _type_: if a files are found it will return the most recent one, otherwise
+            it wil return nothing
         """
         # List all files in the directory
         dirs = os.listdir(folder_path)
@@ -285,15 +210,15 @@ class DataEngine:
         self,
         fname: str = "",
         search_dir: str = "data",
-    ) -> tf.data.Dataset:
+    ) -> tuple[tf.data.Dataset, str]:
         """_summary_
 
         Args:
-            data_dir (str, optional): _description_. Defaults to "data".
             fname (str, optional): _description_. Defaults to "".
+            search_dir (str, optional): _description_. Defaults to "data".
 
         Returns:
-            _type_: _description_
+            tuple[tf.data.Dataset, str]: _description_
         """
         if fname == "":
             data_dir = self.get_most_recent_dataset(search_dir)
@@ -301,11 +226,7 @@ class DataEngine:
         else:
             data_dir = ""
         dataset = tf.data.TFRecordDataset(fname)
-        if self.NETWORK_TYPE == "DNN":
-            map_fn = self.DNN_map_fn
-        elif self.NETWORK_TYPE == "RNN":
-            map_fn = self.RNN_map_fn
-        dataset = dataset.map(map_fn)
+        dataset = dataset.map(self.map_fn)
         dataset = dataset.map(
             lambda input_state, output_state: (
                 self.normalize(input_state, True),
@@ -316,20 +237,21 @@ class DataEngine:
         return (dataset, data_dir)
 
     def normalize(self, example: object, is_input: bool, invert=False):
-        """_summary_
+        """Normalizes the given example based on known max values.
 
         Args:
-            example (object): _description_
-            max_values (list): _description_
-            invert (bool, optional): _description_. Defaults to False.
+            example (tf.Tensor): tensor to be normalized
+            is_input (bool): whether the tensor is an input or output
+            invert (bool, optional): bool to indicate if the tensor
+            should be normalized or denormalize. Defaults to False.
 
         Returns:
-            _type_: _description_
+            tf.Tensor: normalized or denormalized tensor
         """
         if is_input:
-            norm_factors = self.INPUT_NORM_FACTORS
+            norm_factors = self.input_norm_factors
         else:
-            norm_factors = self.OUTPUT_NORM_FACTORS
+            norm_factors = self.output_norm_factors
 
         dim = len(norm_factors)
         max_values_tensor = tf.constant(
@@ -340,22 +262,19 @@ class DataEngine:
         else:
             normalized_example = tf.divide(example, max_values_tensor)
 
-        if self.NETWORK_TYPE == "DNN":
-            normalized_example = tf.squeeze(normalized_example)
-        else:
-            normalized_example = tf.squeeze(normalized_example, axis=0)
+        normalized_example = tf.squeeze(normalized_example)
 
         return normalized_example
 
     @staticmethod
-    def parse_datetime(filename: str):
+    def parse_datetime(filename: str) -> datetime:
         """parses the datetime strings in a folder
 
         Args:
             filename (str):
 
         Returns:
-            _type_: list of datetimestrings
+            datetime: list of datetimestrings
         """
         date_time_str = filename.split("_")[:2]
         date_time_str = "_".join(date_time_str)

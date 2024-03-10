@@ -24,7 +24,7 @@ class dummy_context_mgr:
         return False
 
 
-class SimNetworkEngine:
+class NetworkEngine:
     def __init__(self, network_config):
         for key, value in network_config.items():
             setattr(self, key, value)
@@ -297,7 +297,7 @@ class SimNetworkEngine:
     @staticmethod
     def retrieve_tuner(path=None):
         if path is None:
-            tuner = SimNetworkEngine.get_most_recent_tuner("tuner")
+            tuner = NetworkEngine.get_most_recent_tuner("tuner")
         else:
             tuner = kt.load_tuner(path)
         return tuner
@@ -310,7 +310,7 @@ class SimNetworkEngine:
 
         # If only path is provided, retrieve the tuner using the provided path
         if tuner is None:
-            tuner = SimNetworkEngine.retrieve_tuner(path)
+            tuner = NetworkEngine.retrieve_tuner(path)
 
         hyper_params = tuner.get_best_hyperparameters(num_trials=10)
         for hyper_param in hyper_params:
@@ -333,7 +333,7 @@ class SimNetworkEngine:
 
         # If only path is provided, retrieve the tuner using the provided path
         if tuner is None:
-            tuner = SimNetworkEngine.retrieve_tuner(path)
+            tuner = NetworkEngine.retrieve_tuner(path)
 
         model_name = f"{self.date_str}_{self.config_name}"
 

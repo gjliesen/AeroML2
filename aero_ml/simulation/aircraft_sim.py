@@ -8,7 +8,7 @@ import pyproj
 
 # from .aero_parameters_old import Aero_Parameters
 # from .aero_parameters import Aero_Parameters
-from .aero_parameters1d import Aero_Parameters
+from .aero_parameters1d import AeroParameters
 
 
 @jit(nopython=True)
@@ -178,7 +178,7 @@ def h_theta_matrix(phi, theta):
 
 
 # noinspection DuplicatedCode
-class Aircraft_Sim:
+class AircraftSim:
     # noinspection SpellCheckingInspection
     def __init__(self):
         # noinspection SpellCheckingInspection
@@ -193,6 +193,9 @@ class Aircraft_Sim:
         :param Mext_B_0: initial external moments of aircraft
         :param g_n: gravity
         """
+        # Initialize aero_parameters
+        self.aircraft = AeroParameters()
+
         self.states_init = None
         self.init_step = True
         self.tk_flag = True
@@ -223,9 +226,6 @@ class Aircraft_Sim:
         self.k_d_roll = None
         self.k_p_roll = None
 
-        # Initialize aero_parameters
-        self.aircraft = Aero_Parameters()
-
         # Aerodynamics
         self.v_inf = None
         self.v_b_a = None
@@ -242,7 +242,7 @@ class Aircraft_Sim:
         self.attQuat_B_B_BN_states = None
         self.v_E_B_BE_states = None
         self.w_B_B_BE_states = None
-
+        self.state_vec = np.empty(())
         # Secondary States
         self.att_B_B_BN_states = []
         self.p_E_E_BE_states = []
@@ -345,7 +345,7 @@ class Aircraft_Sim:
         return attQuatDot_B_B_BN
 
     def rotational_kinematics_euler(self):
-        phi, theta, psi = self.att_B_B_BN
+        phi, theta, _ = self.att_B_B_BN
 
         h_theta = h_theta_matrix(phi, theta)
 

@@ -1,8 +1,8 @@
 # Library imports
 from datetime import datetime
 from ..aero_ml.data_engine import DataEngine
-from ..aero_ml.network_engine import SimNetworkEngine
-from ..aero_ml.test_engine import SimTestEngine
+from ..aero_ml.network_engine import NetworkEngine
+from ..aero_ml.test_engine import TestEngine
 
 # Create the directories needed to store model data
 tuner_dir = "/home/ubuntu/aircraft-nn-training-data/tuner"
@@ -10,7 +10,7 @@ model_dir = "/home/ubuntu/aircraft-nn-training-data/models"
 checkpoint_dir = "/home/ubuntu/aircraft-nn-training-data/model_checkpoints"
 training_dir = "/home/ubuntu/aircraft-nn-training-data"
 
-SimNetworkEngine.create_directories(tuner_dir, model_dir, checkpoint_dir)
+NetworkEngine.create_directories(tuner_dir, model_dir, checkpoint_dir)
 
 date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
 project_name = f"{date_str}_aircraft_sim"
@@ -25,24 +25,24 @@ val_dataset = (
 )
 
 # Specifying non-default hyperparameters
-loss_fn = SimNetworkEngine.root_mean_squared_error
+loss_fn = NetworkEngine.root_mean_squared_error
 activation_functions = ["relu", "tanh", "sigmoid"]
 # Initialize the hypermodel function
-hypermodel_fn = SimNetworkEngine.get_DNN_hypermodel_fn(loss_fn, activation_functions)
+hypermodel_fn = NetworkEngine.get_DNN_hypermodel_fn(loss_fn, activation_functions)
 # tune the hypermodel
-tuner = SimNetworkEngine.build_tuner(
+tuner = NetworkEngine.build_tuner(
     hypermodel_fn, "hyperband", project_name, max_epochs=10, directory=tuner_dir
 )
-tuner = SimNetworkEngine.tune_model(tuner, train_dataset, val_dataset, es_patience=4)
+tuner = NetworkEngine.tune_model(tuner, train_dataset, val_dataset, es_patience=4)
 
-SimNetworkEngine.eval_tuner(tuner)
+NetworkEngine.eval_tuner(tuner)
 
-hypermodel, history = SimNetworkEngine.train_tuned_model(
+hypermodel, history = NetworkEngine.train_tuned_model(
     train_dataset, val_dataset, epochs=20, tuner=tuner, model_name="aircraft_sim_0"
 )
-SimNetworkEngine.plot_network_history(history)
+NetworkEngine.plot_network_history(history)
 
-hypermodel, history = SimNetworkEngine.train_tuned_model(
+hypermodel, history = NetworkEngine.train_tuned_model(
     train_dataset,
     val_dataset,
     epochs=20,
@@ -52,9 +52,9 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     checkpoint_dir=checkpoint_dir,
     model_dir=model_dir,
 )
-SimNetworkEngine.plot_network_history(history)
+NetworkEngine.plot_network_history(history)
 
-hypermodel, history = SimNetworkEngine.train_tuned_model(
+hypermodel, history = NetworkEngine.train_tuned_model(
     train_dataset,
     val_dataset,
     epochs=20,
@@ -64,9 +64,9 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     checkpoint_dir=checkpoint_dir,
     model_dir=model_dir,
 )
-SimNetworkEngine.plot_network_history(history)
+NetworkEngine.plot_network_history(history)
 
-hypermodel, history = SimNetworkEngine.train_tuned_model(
+hypermodel, history = NetworkEngine.train_tuned_model(
     train_dataset,
     val_dataset,
     epochs=20,
@@ -76,9 +76,9 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     checkpoint_dir=checkpoint_dir,
     model_dir=model_dir,
 )
-SimNetworkEngine.plot_network_history(history)
+NetworkEngine.plot_network_history(history)
 
-hypermodel, history = SimNetworkEngine.train_tuned_model(
+hypermodel, history = NetworkEngine.train_tuned_model(
     train_dataset,
     val_dataset,
     epochs=20,
@@ -88,7 +88,7 @@ hypermodel, history = SimNetworkEngine.train_tuned_model(
     checkpoint_dir=checkpoint_dir,
     model_dir=model_dir,
 )
-SimNetworkEngine.plot_network_history(history)
+NetworkEngine.plot_network_history(history)
 
-test_engine = SimTestEngine()
+test_engine = TestEngine()
 test_engine.test_model(hypermodel)

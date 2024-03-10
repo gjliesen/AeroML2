@@ -42,7 +42,7 @@ def eye_mat(mat1, mat2, mat3, mat4):
 
 
 @jitclass(surface_two_spec1d)
-class Surface_Two:
+class AeroSurface:
     def __init__(self, arr, n_vec, dx_vec, dx_mat):
         self.surf_arr = arr
 
@@ -206,7 +206,7 @@ class Surface_Two:
         self.D_surf_W[:] = self.CD * self.q_bar * self.Sref
 
 
-class Aero_Parameters:
+class AeroParameters:
     def __init__(self):
         self.mass_props = np.load("simulation/mass_props.npy")
         self.surfs = None
@@ -346,7 +346,7 @@ class Aero_Parameters:
         # 4th instance of eye_mat
         dx_cm_mat = eye_mat(dx_mat4, dx_mat5, dx_mat2, dx_mat3)
 
-        self.surfs2 = Surface_Two(surf_arr, n_vec, dx_cm_vec, dx_cm_mat)
+        self.surfs2 = AeroSurface(surf_arr, n_vec, dx_cm_vec, dx_cm_mat)
 
     def mass_properties(self):
         self.get_mass()

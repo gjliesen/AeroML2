@@ -1,7 +1,7 @@
 from numba import float64, int64, int32, boolean
 from numba import float64, int64
 
-surface_two_spec = {
+aeroSurfaceSpec = {
     "surf_arr": float64[:, :],  # 2D array of floats
     "n_vec": float64[:, :],  # 2D array of 32bit integers
     "dx_vec": float64[:, :],  # 2D array of floats
