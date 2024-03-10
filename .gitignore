@@ -20,4 +20,5 @@ archive/
 _profiles/
 _profiles/*.prof
 _archive/
+_archive/test_data/
 _archive/test_data/*.tfrecord
