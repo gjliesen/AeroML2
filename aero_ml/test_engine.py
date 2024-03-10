@@ -6,10 +6,14 @@ import plotly.graph_objects as go
 import plotly.express as px
 import tensorflow as tf
 from plotly.subplots import make_subplots
-from simulation.aircraft_sim import quat_to_euler
+from aero_ml.simulation.aircraft_sim import quat_to_euler
 
 
 class TestEngine:
+    """
+    class for testing the model on the test data and plotting the results.
+    """
+
     date_str: str
     input_features_euler: list
     output_features_euler: list
@@ -32,6 +36,8 @@ class TestEngine:
         self.plot_columns = []
         self.line_dicts = {}
         self._set_figure_params()
+
+        print("Test Engine Initialized")
 
     def _set_columns(self):
         """Set the input and output columns based on the attitude mode."""
@@ -117,7 +123,7 @@ class TestEngine:
         """
         input_data_list = []
         output_data_list = []
-        for inp, outp in dataset:  # ignore: not iterable
+        for inp, outp in dataset:
             input_data_list.append(inp.numpy())
             output_data_list.append(outp.numpy())
             # Combining all the records into two numpy arrays

@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from datetime import datetime
 from aero_ml.utils import timeit, parse_datetime
-from simulation.aircraft_sim import AircraftSim
+from aero_ml.simulation.aircraft_sim import AircraftSim
 
 
 class DataEngine:
@@ -23,9 +23,9 @@ class DataEngine:
     def __init__(
         self,
     ):
-        self.t_vec = np.arange(0, self.run_time + self.frequency, self.frequency)
-
-        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        super().__init__()
+        self.de_date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        print("Data Engine Initialized")
 
     def generate_dataset(self):
         """Function to generate the training and test datasets for the network."""
@@ -33,7 +33,7 @@ class DataEngine:
         # Initialize the simulation object
         self.sim = AircraftSim()
         # Training dataset
-        dir_name = f"{self.date_str}_{self.meta_data}"
+        dir_name = f"{self.de_date_str}_{self.meta_data}"
 
         train_path = os.path.join(os.getcwd(), f"data/{dir_name}")
         os.makedirs(train_path, exist_ok=True)
@@ -124,13 +124,14 @@ class DataEngine:
             p_E_E_BE_0, att_B_B_BN_0, v_E_B_BE_0, w_B_B_BE_0
         )
         # Run the simulation
-        self.sim.run_simulation(self.run_time, 0, 0, 0, 0, np.array([0, 0, 0]))
+        self.sim.run_simulation(self.run_time, frequency=self.frequency)
 
         # # Defining an update frequency for verifying sim output
         # if (itr + 1) % 1000 == 0:
         #     self.sim.all_states_graph("verify")
 
         # Extract data from simulation
+        # these methods need to return arrays rather than alter member variables
         self.extract_data()
 
         # Skipping simulation output if it's empty
@@ -159,7 +160,10 @@ class DataEngine:
         # Add concatInputs function from old file to stack input instances
         col_concat = np.reshape(inits, (len(inits), 1))
         arr = np.array(
-            [np.vstack((self.t_vec[i], col_concat)) for i in range(len(self.t_vec))]
+            [
+                np.vstack((self.sim.t_vec[i], col_concat))
+                for i in range(len(self.sim.t_vec))
+            ]
         )
         return arr
 

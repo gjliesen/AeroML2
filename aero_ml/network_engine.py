@@ -28,6 +28,14 @@ class dummy_context_mgr:
 
 
 class NetworkEngine:
+    """
+    Base class for creating and tuning neural networks, contains methods for
+    hyperparameter tuning and model training. The class is designed to be inherited
+    into one subclass for eacch specific network architecture, and the member
+    variables are to be set in the subclass. The subclass overrides several methods
+    which raise value errors if they are not overwritten
+    """
+
     config_name: str
     input_dim: int
     output_dim: int
@@ -44,12 +52,17 @@ class NetworkEngine:
     reg_range: list
 
     def __init__(self):
+        """Initializes the NetworkEngine class, sets the loss function to a callable if
+        it is a custom loss function, otherwise the string is kept as is. Also sets the
+        date string to the current date and time"""
+        super().__init__()
         if self.loss_fn_str == "rmse":
             self.loss_fn = root_mean_squared_error
         else:
             self.loss_fn = self.loss_fn_str
         # convertings string optimizer to actual function
-        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.net_date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        print("Network Engine initialized")
 
     def choose_distribution_strategy(self) -> typing.Callable:
         """Detects and returns the appropriate distribution strategy for the current
@@ -120,7 +133,7 @@ class NetworkEngine:
         """
         os.makedirs(self.tuner_dir, exist_ok=True)
         if project_name == "":
-            project_name = f"{self.date_str}_{self.config_name}"
+            project_name = f"{self.net_date_str}_{self.config_name}"
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
@@ -136,7 +149,7 @@ class NetworkEngine:
         tuner = tuner_cls(
             hypermodel_fn,
             objective=objective,
-            max_trials=max_epochs,
+            max_epochs=max_epochs,
             directory=directory,
             project_name=project_name,
             overwrite=overwrite,
@@ -260,6 +273,7 @@ class NetworkEngine:
         return (hypermodel, history)
 
     def plot_network_history(self, history):
+        """Plots the training and validation loss of the network in a log scale"""
         epochs = history["epoch"]
         # Log plot
         plt.figure(figsize=(20, 8))
