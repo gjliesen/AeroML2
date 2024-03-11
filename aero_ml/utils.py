@@ -26,9 +26,9 @@ def parse_datetime(filename: str) -> datetime:
     Returns:
         datetime: list of datetimestrings
     """
-    date_time_str = filename.split("_")[:2]
-    date_time_str = "_".join(date_time_str)
-    return datetime.strptime(date_time_str, "%m%d%Y_%H%M%S")
+    date_time_str = filename.split("-")[:2]
+    date_time_str = "-".join(date_time_str)
+    return datetime.strptime(date_time_str, "%m%d%Y-%H%M%S")
 
 
 def get_most_recent(folder_path: str) -> str:

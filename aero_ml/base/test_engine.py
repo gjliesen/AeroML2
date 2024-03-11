@@ -34,7 +34,7 @@ class BaseTestEngine:
         ]
         for key in valid_keys:
             setattr(self, key, config[key])
-        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.date_str = datetime.now().strftime("%m%d%Y-%H%M%S")
         self.data_eng = data_eng
         # dynamically etting the configuration attributes
         self.attitude_mode = att_mode

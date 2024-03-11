@@ -41,8 +41,8 @@ class BaseDataEngine:
         for key in valid_keys:
             setattr(self, key, config[key])
 
-        self.meta_data = f"{self.config_name}_{self.input_dim}_to_{self.output_dim}"
-        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
+        self.meta_data = f"{self.config_name}-{self.input_dim}-{self.output_dim}"
+        self.date_str = datetime.now().strftime("%m%d%Y-%H%M%S")
         print("Data Engine Initialized")
 
     def generate_dataset(self):
@@ -51,7 +51,7 @@ class BaseDataEngine:
         # Initialize the simulation object
         self.sim = AircraftSim()
         # Training dataset
-        dir_name = f"{self.date_str}_{self.meta_data}"
+        dir_name = f"{self.date_str}-{self.meta_data}"
 
         train_path = os.path.join(os.getcwd(), f"data/{dir_name}")
         os.makedirs(train_path, exist_ok=True)
@@ -175,6 +175,7 @@ class BaseDataEngine:
         Returns:
             np.ndarray: numpy array of initial conditions with time vector
         """
+        assert self.sim.t_vec is not None
         # Add concatInputs function from old file to stack input instances
         col_concat = np.reshape(inits, (len(inits), 1))
         arr = np.array(

@@ -1,11 +1,15 @@
+# pyright: reportAttributeAccessIssue=false
 import typing
 import os
+import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
 from aero_ml.base.test_engine import BaseTestEngine
+from aero_ml.base.configurator import BaseConfigurator
 
 
 class DataEngine(BaseDataEngine):
@@ -38,6 +42,7 @@ class DataEngine(BaseDataEngine):
         """
         # Create lists of runs to vertical stack later
         states = self.sim.state_vec
+        assert states is not None
         self.cur_input = states[0:-1]
         self.cur_output = states[1:]
         if self.shuffle:
@@ -195,7 +200,7 @@ class TestEngine(BaseTestEngine):
         """
         input_data_list = []
         output_data_list = []
-        for inp, outp in dataset:
+        for inp, outp in dataset:  # type: ignore
             input_data_list.append(inp.numpy())
             output_data_list.append(outp.numpy())
             # Combining all the records into two numpy arrays
@@ -241,7 +246,7 @@ class TestEngine(BaseTestEngine):
         """
         [true_input_arr, true_output_arr, pred_output_arr] = denorm_arrays
         # Defining truth and input dataframes
-        input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
+        # input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
 
         true_output_df = pd.DataFrame(true_output_arr, columns=self.columns_output)
 

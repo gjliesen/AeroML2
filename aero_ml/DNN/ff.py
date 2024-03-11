@@ -1,11 +1,14 @@
+# pyright: reportAttributeAccessIssue=false
 import typing
 import os
 import tensorflow as tf
 from tensorflow import keras
-from aero_ml.defaults import Defaults
+
+# from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
 from aero_ml.base.test_engine import BaseTestEngine
+from aero_ml.base.configurator import BaseConfigurator
 
 
 class DataEngine(BaseDataEngine):
@@ -38,6 +41,7 @@ class DataEngine(BaseDataEngine):
         """
         # Create lists of runs to vertical stack later
         states = self.sim.state_vec
+        assert states is not None
         self.cur_input = self.concatInputs(states[0]).squeeze()
         self.cur_output = states[1:]
         if self.shuffle:
