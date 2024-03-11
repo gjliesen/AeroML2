@@ -1,7 +1,10 @@
+# pyright: reportAttributeAccessIssue=false
 import os
 import json
 import typing
 import tensorflow as tf
+from tensorflow import keras
+from aero_ml.utils import get_most_recent
 
 
 class Manager:
@@ -81,6 +84,14 @@ class Manager:
 
         return self.train_dataset, self.val_dataset
 
+    def retrieve_tuner(self, path: str = ""):
+        """wrapper for the network engine retrieve_tuner method
+
+        Args:
+            path (str, optional): Path to desired tuner. Defaults to "".
+        """
+        self.tuner = self.network_engine.retrieve_tuner(path)
+
     def tune_network(self, epochs: int = 4, tuner_type: str = "hyperband"):
         """
         Tune the network hyperparameters.
@@ -109,5 +120,7 @@ class Manager:
     def test_model(self):
         self.test_engine.test_model(self.model, self.data_dir)
 
-    def load_model(self, model_path: str):
+    def load_model(self, model_path: str = ""):
+        if model_path == "":
+            model_path = get_most_recent("models")
         self.model = keras.models.load_model(model_path)
