@@ -1,6 +1,9 @@
 import typing
+import os
 import tensorflow as tf
 from tensorflow import keras
+from aero_ml.defaults import Defaults
+from aero_ml.utils import BaseConfigurator
 from aero_ml.base_data_engine import BaseDataEngine
 from aero_ml.base_network_engine import BaseNetworkEngine
 from aero_ml.base_test_engine import BaseTestEngine
@@ -180,3 +183,117 @@ class NetworkEngine(BaseNetworkEngine):
 class TestEngine(BaseTestEngine):
     def __init__(self, config, data_engine):
         super().__init__(config, data_engine)
+
+
+class Configurator(BaseConfigurator):
+    def __init__(self, config_name: str, config_dir: str = "configs"):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_dir, config_name)
+
+    def general_network(
+        self,
+        input_dim: int = 14,
+        output_dim: int = 13,
+        optimizer: str = "adam",
+        metrics: list[str] = ["mse"],
+        loss_fn_str: str = "mse",
+    ):
+        network = dict(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            optimizer=optimizer,
+            metrics=metrics,
+            loss_fn_str=loss_fn_str,
+        )
+
+        self.set_network(network)
+
+    def general_data(
+        self,
+        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
+        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
+    ):
+        features_euler = list(maximums_euler.keys())
+        input_dict = {"time": 10}
+        input_dict.update(maximums_quat)
+
+        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
+
+        # Configuring DNN outputs
+        output_dict = maximums_quat
+        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
+
+        data = dict(
+            input_features=input_features,
+            input_features_euler=["Time"] + features_euler,
+            input_norm_factors=input_norm_factors,
+            output_features=output_features,
+            output_features_euler=features_euler,
+            output_norm_factors=output_norm_factors,
+        )
+
+        self.set_data(data)
+
+    def generation_data(
+        self,
+        run_time: int = 10,
+        frequency: float = 0.01,
+        iterations: int = 5000,
+        test_cases: int = 30,
+        constraints: dict = Defaults.constraints,
+        rnd_method: str = "random",
+        shuffle: bool = False,
+    ):
+        data = dict(
+            run_time=run_time,
+            frequency=frequency,
+            iterations=iterations,
+            length=(run_time / frequency) * iterations,
+            test_cases=test_cases,
+            constraints=constraints,
+            rnd_method=rnd_method,
+            shuffle=shuffle,
+        )
+
+        self.set_data(data)
+
+    def tuning_data(
+        self,
+        width_range: list[int] = [20, 50, 2],
+        depth_range: list[int] = [6, 12, 2],
+        activation_fns: list[str] = Defaults.activation_fns,
+        reg_range: list[typing.Union[float, str]] = Defaults.reg_range,
+        kernel_inits: list[str] = Defaults.kernel_inits,
+        bias_inits: list[str] = Defaults.bias_inits,
+        learning_rates: list[float] = Defaults.learning_rates,
+    ):
+        tuner = dict(
+            activation_fns=activation_fns,
+            width_range=width_range,
+            depth_range=depth_range,
+            reg_range=reg_range,
+            kernel_inits=kernel_inits,
+            bias_inits=bias_inits,
+            learning_rates=learning_rates,
+        )
+
+        self.set_tuner(tuner)
+
+
+def generate_default_config():
+    config = Configurator("ff_default")
+    config.general_network()
+    config.general_data()
+    config.generation_data()
+    config.tuning_data()
+    config.write()
+
+
+if not os.path.isfile("configs/ff_default.json"):
+    generate_default_config()

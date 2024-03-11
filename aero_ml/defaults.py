@@ -49,3 +49,21 @@ class Defaults:
         "Q": (-10, 10),  # Rad / S
         "R": (-10, 10),  # Rad / S
     }
+
+    activation_fns = ["relu", "tanh", "sigmoid"]
+
+    reg_range = [1e-11, 0.001224, "log"]
+
+    kernel_inits = [
+        "glorot_normal",
+        "glorot_uniform",
+        "he_normal",
+        "he_uniform",
+        "random_normal",
+        "random_uniform",
+        "zeros",
+    ]
+
+    bias_inits = ["zeros", "random_uniform"]
+
+    learning_rates = [1e-2, 1e-3, 1e-4]

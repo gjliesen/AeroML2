@@ -1,6 +1,8 @@
 import time
 import os
+import json
 from datetime import datetime
+from aero_ml.defaults import Defaults
 
 
 def timeit(f):
@@ -59,3 +61,38 @@ def get_most_recent(folder_path: str) -> str:
         return path
     else:
         raise FileNotFoundError("No recent file found in the specified directory")
+
+
+class BaseConfigurator:
+    def __init__(self, config_dir: str, config_name: str):
+        self.config = dict(
+            config_name=config_name,
+            config_dir=config_dir,
+        )
+        self.fname = f"{config_dir}/{config_name}.json"
+
+    def configure(self, network=None, dirs=None, tuner=None, data=None):
+        if network is not None:
+            self.set_network(network)
+        if dirs is not None:
+            self.set_dirs(dirs)
+        if tuner is not None:
+            self.set_tuner(tuner)
+        if data is not None:
+            self.set_data(data)
+
+    def set_network(self, network):
+        self.config.update(network)
+
+    def set_dirs(self, dirs):
+        self.config.update(dirs)
+
+    def set_tuner(self, tuner):
+        self.config.update(tuner)
+
+    def set_data(self, data):
+        self.config.update(data)
+
+    def write(self, indent=1):
+        with open(self.fname, "w") as outfile:
+            json.dump(self.config, outfile, indent=indent)
