@@ -246,11 +246,13 @@ class BaseDataEngine:
         Returns:
             tuple[tf.data.Dataset, str]: _description_
         """
+        # loading data if fname is provided otherwise searching for the most recent
         if fname == "":
             data_dir = self.get_most_recent_dataset(search_dir)
             fname = os.path.join(data_dir, "train.tfrecord")
         else:
             data_dir = ""
+        # load the tf record dataset, parse the examples and normalize the data
         dataset = tf.data.TFRecordDataset(fname)
         dataset = dataset.map(self.map_fn)
         dataset = dataset.map(
