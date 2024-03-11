@@ -67,6 +67,8 @@ class Manager:
         self.val_dataset = self.dataset.take(val_length)
         self.train_dataset = self.dataset.skip(val_length)
 
+        return self.train_dataset, self.val_dataset
+
     def set_batch_size(self, batch_size: int = 10000):
         """
         Set the batch size for the training and validation sets.
@@ -76,6 +78,8 @@ class Manager:
         """
         self.val_dataset = self.val_dataset.batch(batch_size)
         self.train_dataset = self.train_dataset.batch(batch_size)
+
+        return self.train_dataset, self.val_dataset
 
     def tune_network(self, epochs: int = 4, tuner_type: str = "hyperband"):
         """
@@ -97,9 +101,13 @@ class Manager:
         Args:
             epochs (int): The number of epochs to train for
         """
-        self.hypermodel, self.history = self.network_engine.train_tuned_model(
+        self.model, self.history = self.network_engine.train_tuned_model(
             self.train_dataset, self.val_dataset, callbacks, epochs, self.tuner
         )
+        return self.model, self.history
 
     def test_model(self):
-        self.test_engine.test_model(self.hypermodel, self.data_dir)
+        self.test_engine.test_model(self.model, self.data_dir)
+
+    def load_model(self, model_path: str):
+        self.model = keras.models.load_model(model_path)
