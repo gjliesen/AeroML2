@@ -10,6 +10,7 @@ testing.py
 *_testing.py
 simulation/__pycache__
 configs/__pycache__
+/configs/
 test_data_plots/
 tuner/
 __pycache__/
