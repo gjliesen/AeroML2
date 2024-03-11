@@ -1,6 +1,9 @@
 import typing
+import os
 import tensorflow as tf
 from tensorflow import keras
+from aero_ml.defaults import Defaults
+from aero_ml.utils import BaseConfigurator
 from aero_ml.base_data_engine import BaseDataEngine
 from aero_ml.base_network_engine import BaseNetworkEngine
 from aero_ml.base_test_engine import BaseTestEngine
@@ -19,23 +22,24 @@ class DataEngine(BaseDataEngine):
         Args:
             tfrecord (typing.IO): tfrecord file to write to
         """
-        states_input = tf.convert_to_tensor(self.cur_input, dtype=tf.float32)
-        states_output = tf.convert_to_tensor(self.cur_output, dtype=tf.float32)
+        for input_state, output_state in zip(self.cur_input, self.cur_output):
+            states_input = tf.convert_to_tensor(input_state, dtype=tf.float32)
+            states_output = tf.convert_to_tensor(output_state, dtype=tf.float32)
 
-        serialized_input = tf.io.serialize_tensor(states_input)
-        serialized_output = tf.io.serialize_tensor(states_output)
+            serialized_input = tf.io.serialize_tensor(states_input)
+            serialized_output = tf.io.serialize_tensor(states_output)
 
-        data = {
-            "input_state": tf.train.Feature(
-                bytes_list=tf.train.BytesList(value=[serialized_input.numpy()])
-            ),
-            "output_state": tf.train.Feature(
-                bytes_list=tf.train.BytesList(value=[serialized_output.numpy()])
-            ),
-        }
+            data = {
+                "input_state": tf.train.Feature(
+                    bytes_list=tf.train.BytesList(value=[serialized_input.numpy()])
+                ),
+                "output_state": tf.train.Feature(
+                    bytes_list=tf.train.BytesList(value=[serialized_output.numpy()])
+                ),
+            }
 
-        example = tf.train.Example(features=tf.train.Features(feature=data))
-        tfrecord.write(example.SerializeToString())
+            example = tf.train.Example(features=tf.train.Features(feature=data))
+            tfrecord.write(example.SerializeToString())
 
     def extract_data(self):
         """
@@ -45,13 +49,14 @@ class DataEngine(BaseDataEngine):
         # Create lists of runs to vertical stack later
         states = self.sim.state_vec
 
-        # reshapes the input shape to be 2D rather than 1D
-        self.cur_input = states[0].reshape(-1, 13)
-        # removes the first state from the output
-        self.cur_output = states[1:]
-
-        if self.shuffle:
-            self.shuffle_data()
+        # cur_input and cur_output are lists of numpy arrays
+        self.cur_input = []
+        self.cur_output = []
+        for i in range(len(states) - 1):
+            # the input state is a sequence from the initial condition to i
+            self.cur_input.append(states[:i])
+            # the output state is the next state after the input state
+            self.cur_output.append(states[i + 1])
 
     def map_fn(
         self, serialized_example: tf.train.Example
@@ -130,7 +135,7 @@ class NetworkEngine(BaseNetworkEngine):
                     input_shape=input_shape,
                 )
             )
-            model.add(keras.layers.LSTM(width, return_sequences=True))
+            model.add(keras.layers.LSTM(width))
             model.add(keras.layers.Dense(13))
             model.compile(
                 optimizer=self.optimizer,
@@ -182,7 +187,7 @@ class NetworkEngine(BaseNetworkEngine):
                     )
                 )
                 # add hidden layers
-                for i in range(hp_depth - 1):
+                for i in range(hp_depth - 2):
                     model.add(
                         keras.layers.LSTM(
                             units=hp_units,
@@ -193,6 +198,14 @@ class NetworkEngine(BaseNetworkEngine):
                         )
                     )
 
+                model.add(
+                    keras.layers.LSTM(
+                        units=hp_units,
+                        activation=hp_act,
+                        kernel_initializer=hp_kernel,
+                        bias_initializer=hp_bias,
+                    )
+                )
                 # add output layer
                 model.add(keras.layers.Dense(13))
 
@@ -211,6 +224,79 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class S2VTestEngine(BaseTestEngine):
+class TestEngine(BaseTestEngine):
     def __init__(self, config: dict, data_engine: DataEngine):
         super().__init__(config, data_engine)
+
+
+class Configurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_name: str, config_dir: str = "configs"):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_dir, config_name)
+
+    def general_network(
+        self,
+        input_dim: int = 13,
+        output_dim: int = 13,
+        optimizer: str = "adam",
+        metrics: list[str] = ["mse"],
+        loss_fn_str: str = "mse",
+    ):
+        network = dict(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            optimizer=optimizer,
+            metrics=metrics,
+            loss_fn_str=loss_fn_str,
+        )
+
+        self.config.update(network)
+
+    def general_data(
+        self,
+        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
+        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
+    ):
+        features_euler = list(maximums_euler.keys())
+        input_dict = maximums_quat
+
+        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
+
+        # Configuring DNN outputs
+        output_dict = maximums_quat
+        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
+
+        data = dict(
+            input_features=input_features,
+            input_features_euler=features_euler,
+            input_norm_factors=input_norm_factors,
+            output_features=output_features,
+            output_features_euler=features_euler,
+            output_norm_factors=output_norm_factors,
+        )
+
+        self.config.update(data)
+
+
+def generate_config(config_name: str, config_dir: str):
+    config = Configurator(config_name, config_dir)
+    config.general_network()
+    config.general_data()
+    config.generation_data()
+    config.tuning_data()
+    config.write()
+
+
+config_name = "s2v_default"
+dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
+default_config_path = os.path.join(dirname, f"{config_name}.json")
+if not os.path.isfile(default_config_path):
+    generate_config(config_name, dirname)
