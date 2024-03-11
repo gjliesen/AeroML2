@@ -248,7 +248,7 @@ class BaseDataEngine:
         """
         if fname == "":
             data_dir = self.get_most_recent_dataset(search_dir)
-            fname = f"{data_dir}/train.tfrecord"
+            fname = os.path.join(data_dir, "train.tfrecord")
         else:
             data_dir = ""
         dataset = tf.data.TFRecordDataset(fname)

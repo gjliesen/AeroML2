@@ -52,7 +52,7 @@ class Manager:
 
     def load_dataset(self, search_dir: str = "data"):
         """wrapper for the data engine load_dataset method"""
-        dataset, data_dir = self.data_engine.load_dataset(search_dir)
+        dataset, data_dir = self.data_engine.load_dataset(search_dir=search_dir)
         self.dataset = dataset
         self.data_dir = data_dir
 
