@@ -218,7 +218,7 @@ class TestEngine(BaseTestEngine):
         norm_input_arr, norm_output_arr = self._extract_data(dataset)
 
         # Running the inputs through the model
-        input_state = norm_input_arr[0]
+        input_state = norm_input_arr[0:1]
         norm_model_output = np.zeros((norm_output_arr.shape))
         for i in range(len(norm_output_arr)):
             # Getting the next state from the model
@@ -253,12 +253,15 @@ class TestEngine(BaseTestEngine):
         # Creating dataframe for output array
         pred_output_df = pd.DataFrame(pred_output_arr, columns=self.columns_output)
 
+        t0 = 0.0
+        dt = 0.01
+        t_vec = np.arange(t0, t0 + dt * len(true_output_arr), dt)
         # Joining the two dataframes for plotting and comparison
         comp_df = true_output_df.join(
             pred_output_df, lsuffix="_Truth", rsuffix="_Prediction"
         )
         comp_df = comp_df.reindex(sorted(comp_df.columns), axis=1)
-        comp_df = comp_df.drop(columns=["Time_Prediction"])
+        comp_df["Time_Truth"] = t_vec
 
         # Return dataframe for plotting
         return comp_df
