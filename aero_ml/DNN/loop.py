@@ -1,6 +1,11 @@
 import typing
+import os
+import pandas as pd
+import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from aero_ml.defaults import Defaults
+from aero_ml.utils import BaseConfigurator
 from aero_ml.base_data_engine import BaseDataEngine
 from aero_ml.base_network_engine import BaseNetworkEngine
 from aero_ml.base_test_engine import BaseTestEngine
@@ -177,6 +182,155 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class LoopTestEngine(BaseTestEngine):
+class TestEngine(BaseTestEngine):
     def __init__(self, config: dict, data_engine: DataEngine):
         super().__init__(config, data_engine)
+
+    def _extract_data(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
+        """Extract the input and output data from the dataset.
+
+        Args:
+            dataset (tf.data.Dataset): dataset containing the test data
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: tuple of the normalized input and output data
+            arrays
+        """
+        input_data_list = []
+        output_data_list = []
+        for inp, outp in dataset:
+            input_data_list.append(inp.numpy())
+            output_data_list.append(outp.numpy())
+            # Combining all the records into two numpy arrays
+        # Test Input
+        norm_input_arr = np.vstack(tuple(input_data_list))
+        # Test Output
+        norm_output_arr = np.vstack(tuple(output_data_list))
+
+        return (norm_input_arr, norm_output_arr)
+
+    def _process_data(self, fname: str, model_to_test) -> pd.DataFrame:
+        # Looping through and building dataset from tfrecords
+        dataset, _ = self.data_eng.load_dataset(fname=fname)
+        # Extracting the normalized input and output array from the datset
+        norm_input_arr, norm_output_arr = self._extract_data(dataset)
+
+        # Running the inputs through the model
+        input_state = norm_input_arr[0]
+        norm_model_output = np.zeros((norm_output_arr.shape))
+        for i in range(len(norm_output_arr)):
+            # Getting the next state from the model
+            output_state = model_to_test(input_state)
+            # adding that state to the output array
+            norm_model_output[i] = output_state
+            # setting the next input to the output of the model
+            input_state = output_state
+
+        norm_arrays = [norm_input_arr, norm_output_arr, norm_model_output]
+        denorm_arrays = self._denormalize_data(norm_arrays)
+        if self.attitude_mode == "Euler":
+            denorm_arrays = self._convert_attitude(denorm_arrays)
+
+        return self._create_dataframe(denorm_arrays)
+
+    def _create_dataframe(self, denorm_arrays: list[np.ndarray]) -> pd.DataFrame:
+        """Create a dataframe for plotting from the input, output, and predicted arrays.
+
+        Args:
+            denorm_arrays (list[np.ndarray]): list of the denormalized input and output
+
+        Returns:
+            pd.DataFrame: dataframe of the input, output, and predicted arrays
+        """
+        [true_input_arr, true_output_arr, pred_output_arr] = denorm_arrays
+        # Defining truth and input dataframes
+        input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
+
+        true_output_df = pd.DataFrame(true_output_arr, columns=self.columns_output)
+
+        # Creating dataframe for output array
+        pred_output_df = pd.DataFrame(pred_output_arr, columns=self.columns_output)
+
+
+        # Joining the two dataframes for plotting and comparison
+        comp_df = true_output_df.join(
+            pred_output_df, lsuffix="_Truth", rsuffix="_Prediction"
+        )
+        comp_df = comp_df.reindex(sorted(comp_df.columns), axis=1)
+        comp_df = comp_df.drop(columns=["Time_Prediction"])
+
+        # Return dataframe for plotting
+        return comp_df
+
+
+class Configurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_name: str, config_dir: str = "configs"):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_dir, config_name)
+
+    def general_network(
+        self,
+        input_dim: int = 13,
+        output_dim: int = 13,
+        optimizer: str = "adam",
+        metrics: list[str] = ["mse"],
+        loss_fn_str: str = "mse",
+    ):
+        network = dict(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            optimizer=optimizer,
+            metrics=metrics,
+            loss_fn_str=loss_fn_str,
+        )
+
+        self.config.update(network)
+
+    def general_data(
+        self,
+        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
+        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
+    ):
+        features_euler = list(maximums_euler.keys())
+        input_dict = maximums_quat
+
+        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
+
+        # Configuring DNN outputs
+        output_dict = maximums_quat
+        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
+
+        data = dict(
+            input_features=input_features,
+            input_features_euler=features_euler,
+            input_norm_factors=input_norm_factors,
+            output_features=output_features,
+            output_features_euler=features_euler,
+            output_norm_factors=output_norm_factors,
+        )
+
+        self.config.update(data)
+
+
+def generate_config(config_name: str, config_dir: str):
+    config = Configurator(config_name, config_dir)
+    config.general_network()
+    config.general_data()
+    config.generation_data()
+    config.tuning_data()
+    config.write()
+
+
+config_name = "loop_default"
+dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
+default_config_path = os.path.join(dirname, f"{config_name}.json")
+if not os.path.isfile(default_config_path):
+    generate_config(config_name, dirname)
