@@ -42,7 +42,7 @@ class BaseDataEngine:
             setattr(self, key, config[key])
 
         self.meta_data = f"{self.config_name}-{self.input_dim}-{self.output_dim}"
-        self.date_str = datetime.now().strftime("%m%d%Y-%H%M%S")
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Data Engine Initialized")
 
     def generate_dataset(self):

@@ -81,7 +81,7 @@ class BaseNetworkEngine:
         else:
             self.loss_fn = self.loss_fn_str
         # convertings string optimizer to actual function
-        self.date_str = datetime.now().strftime("%m%d%Y-%H%M%S")
+        self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Network Engine initialized")
 
     def choose_distribution_strategy(self) -> typing.Callable:
@@ -152,10 +152,11 @@ class BaseNetworkEngine:
             Tuner: Keras tuner object to be used for hyperparameter tuning
         """
         os.makedirs(directory, exist_ok=True)
-        project_name = (
-            f"{self.date_str}_{self.config_name}_{tuner_type}_{max_epochs}"
-            f"_{objective_metric}_{objective_minmax}"
-        )
+        if project_name == "":
+            project_name = (
+                f"{self.date_str}_{self.config_name}_{tuner_type}_{max_epochs}"
+                f"_{objective_metric}_{objective_minmax}"
+            )
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
 
@@ -190,10 +191,10 @@ class BaseNetworkEngine:
         # Extract all the tuner data from the project name
         project_name = os.path.basename(path)
         project_info = project_name.split("-")
-        tuner_type = project_info[2]
-        max_epochs = int(project_info[3])
-        objective_metric = project_info[4]
-        objective_minmax = project_info[5]
+        tuner_type = project_info[3]
+        max_epochs = int(project_info[4])
+        objective_metric = project_info[5]
+        objective_minmax = project_info[6]
 
         # Return an identically built tuner
         tuner = self.build_tuner(
