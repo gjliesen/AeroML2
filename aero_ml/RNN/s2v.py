@@ -3,12 +3,9 @@ import os
 import tensorflow as tf
 from tensorflow import keras
 from aero_ml.defaults import Defaults
-from aero_ml.base import (
-    BaseDataEngine,
-    BaseNetworkEngine,
-    BaseTestEngine,
-    BaseConfigurator,
-)
+from aero_ml.base.data_engine import BaseDataEngine
+from aero_ml.base.network_engine import BaseNetworkEngine
+from aero_ml.base.test_engine import BaseTestEngine
 
 
 class DataEngine(BaseDataEngine):
