@@ -41,10 +41,7 @@ class BaseDataEngine:
         for key in valid_keys:
             setattr(self, key, config[key])
 
-        self.meta_data = (
-            f"{self.config_name}_{self.config_dir}_{self.input_dim}_to_"
-            f"{self.output_dim}"
-        )
+        self.meta_data = f"{self.config_name}_{self.input_dim}_to_{self.output_dim}"
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Data Engine Initialized")
 
