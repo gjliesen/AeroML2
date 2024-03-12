@@ -1,7 +1,7 @@
 # Aero ML: Integrating ML Architectures with Nonlinear 6DOF Simulation
 Overview
 
-Aero ML is a Python package designed to test various machine learning architectures as surrogate models for a nonlinear 6DOF (six degrees of freedom) simulation of an ASW-28 glider. It provides essential tools and modules for implementing Deep Neural Networks (DNN) and Recurrent Neural Networks (RNN) in the context of 6DOF aerospace simulations.
+Aero ML is a Python package designed to test various machine learning architectures as surrogate models for a nonlinear 6DOF (six degrees of freedom) simulation of an ASW-28 glider. It provides essential tools and modules for implementing Deep Neural Networks (DNN) and Recurrent Neural Networks (RNN).
 
 
 ## Usage
