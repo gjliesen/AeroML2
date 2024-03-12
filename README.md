@@ -16,7 +16,7 @@ from aero_ml.RNN.s2v import DataEngine, NetworkEngine, TestEngine, default_confi
 
 """
 default_config_path is the default configuration for the imported network, custom configurations
-can be created with the network specific configuration model
+can be created with the network specific configuration module
 """
 
 # Create a Manager instance
