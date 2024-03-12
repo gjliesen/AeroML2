@@ -68,7 +68,7 @@ class BaseConfigurator:
         self,
         run_time: int = 10,
         frequency: float = 0.01,
-        iterations: int = 5000,
+        iterations: int = 20000,
         test_cases: int = 30,
         constraints: dict = Defaults.constraints,
         rnd_method: str = "random",
