@@ -39,6 +39,7 @@ class Manager:
         self.data_engine = data_engine(self.config)
         self.network_engine = network_engine(self.config)
         self.test_engine = test_engine(self.config, self.data_engine)
+        self.callbacks = []
 
     def create_dirs(self):
         """Create the directories for the model, checkpoints, and tuner"""
@@ -91,6 +92,24 @@ class Manager:
 
         return self.train_dataset, self.val_dataset
 
+    def add_early_stopping(
+        self, monitor: str = "val_loss", min_delta: float = 0.001, patience: int = 4
+    ):
+        """
+        Add the early stopping callback to the network engine
+
+        Args:
+            monitor (str): The metric to monitor
+            patience (int): The number of epochs to wait before stopping
+            min_delta (float): The minimum change in the monitored metric to be
+            considered an improvement
+        """
+        self.callbacks.append(
+            keras.callbacks.EarlyStopping(
+                monitor=monitor, min_delta=min_delta, patience=patience
+            )
+        )
+
     def retrieve_tuner(self, path: str = ""):
         """wrapper for the network engine retrieve_tuner method
 
@@ -119,6 +138,8 @@ class Manager:
         Args:
             epochs (int): The number of epochs to train for
         """
+        if callbacks == []:
+            callbacks = self.callbacks
         self.model, self.history = self.network_engine.train_tuned_model(
             self.train_dataset, self.val_dataset, callbacks, epochs, self.tuner
         )
