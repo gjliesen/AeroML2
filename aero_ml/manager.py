@@ -130,4 +130,6 @@ class Manager:
     def load_model(self, model_path: str = ""):
         if model_path == "":
             model_path = get_most_recent("models")
-        self.model = keras.models.load_model(model_path)
+        self.model = keras.models.load_model(
+            model_path, custom_objects={"custom_function": "rmse"}
+        )

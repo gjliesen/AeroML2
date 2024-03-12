@@ -61,7 +61,8 @@ class BaseDataEngine:
         # Create folder for test data
         test_path = os.path.join(train_path, "test")
         os.makedirs(test_path, exist_ok=True)
-
+        # setting shuffle back to false for test data
+        self.shuffle = False
         # Write test datasets to folder
         for case in range(self.test_cases):
             self.write_tfrecords(f"test_{case}", test_path, 1)

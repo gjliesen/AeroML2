@@ -305,7 +305,7 @@ class BaseNetworkEngine:
         if tuner is None:
             tuner = self.retrieve_tuner(path)
 
-        model_name = f"{self.date_str}_{self.config_name}"
+        model_name = f"{self.date_str}-{self.config_name}"
 
         assert tuner is not None
 
