@@ -13,13 +13,6 @@ from aero_ml.utils import get_most_recent
 Tuner = typing.Union[kt.Hyperband, kt.RandomSearch, kt.BayesianOptimization, None]
 
 
-@keras.saving.register_keras_serializable(name="rmse")
-def root_mean_squared_error(y_true, y_pred):
-    return tf.sqrt(
-        tf.reduce_mean(tf.square(y_pred - y_true))
-    )  # noinspection PyArgumentList
-
-
 # Dummy context manager for use when no strategy is provided
 class dummy_context_mgr:
     def __enter__(self):
@@ -77,6 +70,13 @@ class BaseNetworkEngine:
             setattr(self, key, config[key])
 
         if self.loss_fn_str == "rmse":
+
+            @keras.saving.register_keras_serializable(name="rmse")
+            def root_mean_squared_error(y_true, y_pred):
+                return tf.sqrt(
+                    tf.reduce_mean(tf.square(y_pred - y_true))
+                )  # noinspection PyArgumentList
+
             self.loss_fn = root_mean_squared_error
         else:
             self.loss_fn = self.loss_fn_str
