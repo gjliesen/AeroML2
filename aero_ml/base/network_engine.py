@@ -154,8 +154,8 @@ class BaseNetworkEngine:
         os.makedirs(directory, exist_ok=True)
         if project_name == "":
             project_name = (
-                f"{self.date_str}_{self.config_name}_{tuner_type}_{max_epochs}"
-                f"_{objective_metric}_{objective_minmax}"
+                f"{self.date_str}-{self.config_name}-{tuner_type}-{max_epochs}"
+                f"-{objective_metric}-{objective_minmax}"
             )
         # Define the objective
         objective = kt.Objective(objective_metric, objective_minmax)
@@ -191,10 +191,10 @@ class BaseNetworkEngine:
         # Extract all the tuner data from the project name
         project_name = os.path.basename(path)
         project_info = project_name.split("-")
-        tuner_type = project_info[3]
-        max_epochs = int(project_info[4])
-        objective_metric = project_info[5]
-        objective_minmax = project_info[6]
+        tuner_type = project_info[2]
+        max_epochs = int(project_info[3])
+        objective_metric = project_info[4]
+        objective_minmax = project_info[5]
 
         # Return an identically built tuner
         tuner = self.build_tuner(
