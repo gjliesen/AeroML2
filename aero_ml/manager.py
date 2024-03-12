@@ -49,9 +49,9 @@ class Manager:
         with open(config_path, "r") as infile:
             return json.load(infile)
 
-    def generate_dataset(self):
+    def generate_dataset(self, shuffle=None):
         """wrapper for the data engine generate_dataset method"""
-        self.data_engine.generate_dataset()
+        self.data_engine.generate_dataset(shuffle)
 
     def load_dataset(self, search_dir: str = "data"):
         """wrapper for the data engine load_dataset method"""

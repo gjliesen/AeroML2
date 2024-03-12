@@ -45,9 +45,10 @@ class BaseDataEngine:
         self.date_str = datetime.now().strftime("%m%d%Y_%H%M%S")
         print("Data Engine Initialized")
 
-    def generate_dataset(self):
+    def generate_dataset(self, shuffle=None):
         """Function to generate the training and test datasets for the network."""
-
+        if shuffle is not None:
+            self.shuffle = shuffle
         # Initialize the simulation object
         self.sim = AircraftSim()
         # Training dataset
