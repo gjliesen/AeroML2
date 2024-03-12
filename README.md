@@ -6,7 +6,7 @@ Aero ML is a Python package designed to test various machine learning architectu
 
 ## Usage
 
-'''python
+```python
 from aero_ml.manager import Manager
 from aero_ml.RNN.s2v import DataEngine, NetworkEngine, TestEngine, default_config_path
 
@@ -34,4 +34,4 @@ manager.set_batch_size(batch_size=10000)
 
 # Retrieve tuner
 manager.retrieve_tuner('path_to_tuner')
-'''
+```
