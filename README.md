@@ -5,6 +5,10 @@ Aero ML is a Python package designed to test various machine learning architectu
 
 
 ## Usage
+```
+pip install -r requirements.txt
+```
+
 
 ```python
 from aero_ml.manager import Manager
