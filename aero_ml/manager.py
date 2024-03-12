@@ -72,6 +72,13 @@ class Manager:
 
         return self.train_dataset, self.val_dataset
 
+    def cache_dataset(self):
+        """Cache the dataset for faster access"""
+        self.val_dataset = self.val_dataset.cache()
+        self.train_dataset = self.train_dataset.cache()
+
+        return self.train_dataset, self.val_dataset
+
     def set_batch_size(self, batch_size: int = 10000):
         """
         Set the batch size for the training and validation sets.
