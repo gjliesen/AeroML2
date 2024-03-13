@@ -80,15 +80,19 @@ class Manager:
 
         return self.train_dataset, self.val_dataset
 
-    def set_batch_size(self, batch_size: int = 10000):
+    def set_batch_size(self, batch_size: int = 10000, drop_remainder: bool = False):
         """
         Set the batch size for the training and validation sets.
 
         Args:
             batch_size (int): The batch size to use
         """
-        self.val_dataset = self.val_dataset.batch(batch_size)
-        self.train_dataset = self.train_dataset.batch(batch_size)
+        self.val_dataset = self.val_dataset.batch(
+            batch_size, drop_remainder=drop_remainder
+        )
+        self.train_dataset = self.train_dataset.batch(
+            batch_size, drop_remainder=drop_remainder
+        )
 
         return self.train_dataset, self.val_dataset
 
