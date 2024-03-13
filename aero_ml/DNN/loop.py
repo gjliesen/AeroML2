@@ -12,7 +12,7 @@ from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
 
 
-class DataEngine(BaseDataEngine):
+class LoopDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -99,7 +99,7 @@ class DataEngine(BaseDataEngine):
         return normalized_example
 
 
-class NetworkEngine(BaseNetworkEngine):
+class LoopNetworkEngine(BaseNetworkEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -184,8 +184,8 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class TestEngine(BaseTestEngine):
-    def __init__(self, config: dict, data_engine: DataEngine):
+class LoopTestEngine(BaseTestEngine):
+    def __init__(self, config: dict, data_engine: LoopDataEngine):
         super().__init__(config, data_engine)
 
     def _extract_data(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
@@ -244,7 +244,7 @@ class TestEngine(BaseTestEngine):
         Returns:
             pd.DataFrame: dataframe of the input, output, and predicted arrays
         """
-        [true_input_arr, true_output_arr, pred_output_arr] = denorm_arrays
+        _, true_output_arr, pred_output_arr = denorm_arrays
         # Defining truth and input dataframes
         # input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
 
@@ -267,7 +267,7 @@ class TestEngine(BaseTestEngine):
         return comp_df
 
 
-class Configurator(BaseConfigurator):
+class LoopConfigurator(BaseConfigurator):
     config: dict
 
     def __init__(self, config_name: str, config_dir: str = "configs"):
@@ -286,7 +286,7 @@ class Configurator(BaseConfigurator):
         output_dim: int = 13,
         optimizer: str = "adam",
         metrics: list[str] = ["mse"],
-        loss_fn_str: str = "mse",
+        loss_fn_str: str = "rmse",
     ):
         network = dict(
             input_dim=input_dim,
@@ -325,7 +325,7 @@ class Configurator(BaseConfigurator):
 
 
 def generate_config(config_name: str, config_dir: str):
-    config = Configurator(config_name, config_dir)
+    config = LoopConfigurator(config_name, config_dir)
     config.general_network()
     config.general_data()
     config.generation_data()
@@ -335,6 +335,6 @@ def generate_config(config_name: str, config_dir: str):
 
 config_name = "loop_default"
 dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(default_config_path):
+loop_default_config_path = os.path.join(dirname, f"{config_name}.json")
+if not os.path.isfile(loop_default_config_path):
     generate_config(config_name, dirname)

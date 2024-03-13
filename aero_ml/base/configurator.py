@@ -18,7 +18,7 @@ class BaseConfigurator:
             config_name=config_name,
             config_dir=config_dir,
         )
-        self.fname = f"{config_dir}/{config_name}.json"
+        self.path = f"{config_dir}/{config_name}.json"
 
     def general_network(
         self,
@@ -132,5 +132,5 @@ class BaseConfigurator:
         self.config.update(data)
 
     def write(self, indent=1):
-        with open(self.fname, "w") as outfile:
+        with open(self.path, "w") as outfile:
             json.dump(self.config, outfile, indent=indent)

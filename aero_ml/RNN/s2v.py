@@ -1,6 +1,8 @@
 # pyright: reportAttributeAccessIssue=false
 import typing
 import os
+import numpy as np
+import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 from aero_ml.defaults import Defaults
@@ -10,7 +12,7 @@ from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
 
 
-class DataEngine(BaseDataEngine):
+class S2VDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -53,11 +55,15 @@ class DataEngine(BaseDataEngine):
         # cur_input and cur_output are lists of numpy arrays
         self.cur_input = []
         self.cur_output = []
-        for i in range(len(states) - 1):
+        max_length = len(states)
+        for i in range(1, max_length):
             # the input state is a sequence from the initial condition to i
-            self.cur_input.append(states[:i])
+            padded_states = np.zeros((max_length - 1, states.shape[1]))
+            padded_states[-i:] = states[:i]
+
+            self.cur_input.append(padded_states)
             # the output state is the next state after the input state
-            self.cur_output.append(states[i + 1])
+            self.cur_output.append(states[i])  # noqa: E203
 
     def map_fn(
         self, serialized_example: tf.train.Example
@@ -117,7 +123,7 @@ class DataEngine(BaseDataEngine):
         return normalized_example
 
 
-class NetworkEngine(BaseNetworkEngine):
+class S2VNetworkEngine(BaseNetworkEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -126,7 +132,7 @@ class NetworkEngine(BaseNetworkEngine):
         # Define the distribution strategy for training
         scope = self.choose_distribution_strategy()
 
-        input_shape = [None, 1, self.input_dim]
+        input_shape = [1000, self.input_dim]
         with scope():
             model = keras.models.Sequential()
             model.add(
@@ -146,7 +152,7 @@ class NetworkEngine(BaseNetworkEngine):
             return model
 
     def get_hypermodel_fn(self) -> typing.Callable:
-        strategy = self.choose_distribution_strategy()
+        scope = self.choose_distribution_strategy()
 
         def hypermodel_fn(hp):
             hp_units = hp.Int(
@@ -170,7 +176,7 @@ class NetworkEngine(BaseNetworkEngine):
             # )
             hp_kernel = hp.Choice("dense_kernel", values=self.kernel_inits)
             hp_bias = hp.Choice("dense_bias", values=self.bias_inits)
-            with strategy():
+            with scope():
                 keras.backend.clear_session()
                 # Intialize model
                 model = keras.models.Sequential()
@@ -202,6 +208,7 @@ class NetworkEngine(BaseNetworkEngine):
                 model.add(
                     keras.layers.LSTM(
                         units=hp_units,
+                        return_sequences=False,
                         activation=hp_act,
                         kernel_initializer=hp_kernel,
                         bias_initializer=hp_bias,
@@ -225,12 +232,96 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class TestEngine(BaseTestEngine):
-    def __init__(self, config: dict, data_engine: DataEngine):
+class S2VTestEngine(BaseTestEngine):
+    def __init__(self, config: dict, data_engine: S2VDataEngine):
         super().__init__(config, data_engine)
 
+    def _extract_data(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
+        """Extract the input and output data from the dataset.
 
-class Configurator(BaseConfigurator):
+        Args:
+            dataset (tf.data.Dataset): dataset containing the test data
+
+        Returns:
+            tuple[np.ndarray, np.ndarray]: tuple of the normalized input and output data
+            arrays
+        """
+        output_data_list = []
+        for inp, outp in dataset:  # type: ignore
+            output_data_list.append(outp.numpy())
+            # Combining all the records into two numpy arrays
+        # Test Input
+        norm_input_arr = inp.numpy()
+        # Test Output
+        norm_output_arr = np.vstack(tuple(output_data_list))
+
+        if norm_input_arr.shape != norm_output_arr.shape:
+            raise ValueError(
+                "The input and output data shapes do not match. "
+                f"Input shape: {norm_input_arr.shape}, "
+                f"Output shape: {norm_output_arr.shape}"
+            )
+        return (norm_input_arr, norm_output_arr)
+
+    def _process_data(self, fname: str, model_to_test) -> pd.DataFrame:
+        # Looping through and building dataset from tfrecords
+        dataset, _ = self.data_eng.load_dataset(fname=fname)
+        # Extracting the normalized input and output array from the datset
+        norm_input_arr, norm_output_arr = self._extract_data(dataset)
+
+        # Running the inputs through the model
+        # initializing the model output array
+        norm_model_output = np.zeros((norm_output_arr.shape))
+        # setting the first input to the first input of the test data
+        norm_model_output[0] = norm_input_arr[0]
+        for i in range(1, len(norm_output_arr)):
+            # growing the sequence of inputs at each time step
+            input_state = norm_model_output[0:i]
+            # Getting the next state from the model
+            output_state = model_to_test(input_state)
+            # adding that state to the output array
+            norm_model_output[i] = output_state
+
+        norm_arrays = [norm_input_arr, norm_output_arr, norm_model_output]
+        denorm_arrays = self._denormalize_data(norm_arrays)
+        if self.attitude_mode == "Euler":
+            denorm_arrays = self._convert_attitude(denorm_arrays)
+
+        return self._create_dataframe(denorm_arrays)
+
+    def _create_dataframe(self, denorm_arrays: list[np.ndarray]) -> pd.DataFrame:
+        """Create a dataframe for plotting from the input, output, and predicted arrays.
+
+        Args:
+            denorm_arrays (list[np.ndarray]): list of the denormalized input and output
+
+        Returns:
+            pd.DataFrame: dataframe of the input, output, and predicted arrays
+        """
+        _, true_output_arr, pred_output_arr = denorm_arrays
+        # Defining truth and input dataframes
+        # input_df = pd.DataFrame(true_input_arr, columns=self.columns_input)
+
+        true_output_df = pd.DataFrame(true_output_arr, columns=self.columns_output)
+
+        # Creating dataframe for output array
+        pred_output_df = pd.DataFrame(pred_output_arr, columns=self.columns_output)
+
+        t0 = 0.0
+        dt = 0.01
+        t_vec = np.arange(t0, t0 + dt * len(true_output_arr), dt)
+        # Joining the two dataframes for plotting and comparison
+        comp_df = true_output_df.join(
+            pred_output_df, lsuffix="_Truth", rsuffix="_Prediction"
+        )
+        comp_df = comp_df.reindex(sorted(comp_df.columns), axis=1)
+        comp_df["Time_Truth"] = t_vec
+
+        # Return dataframe for plotting
+        return comp_df
+
+
+class S2VConfigurator(BaseConfigurator):
     config: dict
 
     def __init__(self, config_name: str, config_dir: str = "configs"):
@@ -288,7 +379,7 @@ class Configurator(BaseConfigurator):
 
 
 def generate_config(config_name: str, config_dir: str):
-    config = Configurator(config_name, config_dir)
+    config = S2VConfigurator(config_name, config_dir)
     config.general_network()
     config.general_data()
     config.generation_data()
@@ -298,6 +389,6 @@ def generate_config(config_name: str, config_dir: str):
 
 config_name = "s2v_default"
 dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(default_config_path):
+s2v_default_config_path = os.path.join(dirname, f"{config_name}.json")
+if not os.path.isfile(s2v_default_config_path):
     generate_config(config_name, dirname)

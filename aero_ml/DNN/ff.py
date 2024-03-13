@@ -11,7 +11,7 @@ from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
 
 
-class DataEngine(BaseDataEngine):
+class FFDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -98,7 +98,7 @@ class DataEngine(BaseDataEngine):
         return normalized_example
 
 
-class NetworkEngine(BaseNetworkEngine):
+class FFNetworkEngine(BaseNetworkEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -183,12 +183,12 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class TestEngine(BaseTestEngine):
+class FFTestEngine(BaseTestEngine):
     def __init__(self, config, data_engine):
         super().__init__(config, data_engine)
 
 
-class Configurator(BaseConfigurator):
+class FFConfigurator(BaseConfigurator):
     config: dict
 
     def __init__(self, config_name: str, config_dir: str = "configs"):
@@ -203,7 +203,7 @@ class Configurator(BaseConfigurator):
 
 
 def generate_config(config_name: str, config_dir: str):
-    config = Configurator(config_name, config_dir)
+    config = FFConfigurator(config_name, config_dir)
     config.general_network()
     config.general_data()
     config.generation_data()
@@ -213,6 +213,6 @@ def generate_config(config_name: str, config_dir: str):
 
 config_name = "ff_default"
 dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(default_config_path):
+ff_default_config_path = os.path.join(dirname, f"{config_name}.json")
+if not os.path.isfile(ff_default_config_path):
     generate_config(config_name, dirname)
