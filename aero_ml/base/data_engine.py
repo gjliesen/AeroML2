@@ -59,7 +59,6 @@ class BaseDataEngine:
         dir_name = f"{self.date_str}-{self.meta_data}"
         train_path = Path.cwd().joinpath("data", dir_name, "train.tfrecord")
         train_path.parent.mkdir(parents=True, exist_ok=True)
-        os.makedirs(train_path, exist_ok=True)
 
         # Write training datasets to folder
         self.write_tfrecords(train_path, self.iterations)
