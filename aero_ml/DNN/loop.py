@@ -289,6 +289,7 @@ class LoopConfigurator(BaseConfigurator):
         metrics: list[str] = ["mse"],
         loss_fn_str: str = "rmse",
     ):
+        super().general_network()
         network = dict(
             input_dim=input_dim,
             output_dim=output_dim,
@@ -304,6 +305,7 @@ class LoopConfigurator(BaseConfigurator):
         maximums_euler: dict = Defaults.MAXIMUMS_EULER,
         maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
     ):
+        super().general_data()
         features_euler = list(maximums_euler.keys())
         input_dict = maximums_quat
 
@@ -326,7 +328,7 @@ class LoopConfigurator(BaseConfigurator):
 
 
 config_name = "loop_default"
-loop_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
+loop_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
 
 if not loop_default_config_path.exists():
     cfg = LoopConfigurator(loop_default_config_path)

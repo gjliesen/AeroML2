@@ -356,6 +356,7 @@ class S2VConfigurator(BaseConfigurator):
         metrics: list[str] = ["mse"],
         loss_fn_str: str = "mse",
     ):
+        super().general_network()
         network = dict(
             input_dim=input_dim,
             output_dim=output_dim,
@@ -371,6 +372,7 @@ class S2VConfigurator(BaseConfigurator):
         maximums_euler: dict = Defaults.MAXIMUMS_EULER,
         maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
     ):
+        super().general_data()
         features_euler = list(maximums_euler.keys())
         input_dict = maximums_quat
 
@@ -391,10 +393,33 @@ class S2VConfigurator(BaseConfigurator):
 
         self.config.update(data)
 
+    def generation_data(
+        self,
+        run_time: int = 1,
+        frequency: float = 0.01,
+        iterations: int = 200000,
+        test_cases: int = 30,
+        constraints: dict = Defaults.constraints,
+        rnd_method: str = "random",
+        shuffle: bool = False,
+    ):
+        super().generation_data()
+        data = dict(
+            run_time=run_time,
+            frequency=frequency,
+            iterations=iterations,
+            length=(run_time / frequency) * iterations,
+            test_cases=test_cases,
+            constraints=constraints,
+            rnd_method=rnd_method,
+            shuffle=shuffle,
+        )
+
+        self.config.update(data)
+
 
 config_name = "s2v_default"
-s2v_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
-
+s2v_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
 if not s2v_default_config_path.exists():
     cfg = S2VConfigurator(s2v_default_config_path)
     cfg.generate()

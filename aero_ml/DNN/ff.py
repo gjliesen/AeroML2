@@ -204,7 +204,7 @@ class FFConfigurator(BaseConfigurator):
 
 
 config_name = "s2v_default"
-ff_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
+ff_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
 
 if not ff_default_config_path.exists():
     cfg = FFConfigurator(ff_default_config_path)

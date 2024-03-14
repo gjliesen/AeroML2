@@ -1,5 +1,6 @@
 import os
 import typing
+from typing import Union
 import json
 from pathlib import Path
 from aero_ml.defaults import Defaults
@@ -8,7 +9,7 @@ from aero_ml.defaults import Defaults
 class BaseConfigurator:
     config: dict  # dictionary containing the configuration
 
-    def __init__(self, config_path: os.PathLike, config_name: str = ""):
+    def __init__(self, config_path: Union[os.PathLike, str], config_name: str = ""):
         """Configurator for the FF network, sets up default parameter config for network
         but the user can create new ones by calling the methods
 
@@ -26,9 +27,18 @@ class BaseConfigurator:
         elif self.path.is_dir():
             self.path = self.path / f"{config_name}.json"
 
+        # Initialize the dictionary
         self.config = dict(
             config_name=self.path.stem,
-            config_dir=self.path.parent,
+            config_dir=str(self.path.parent),
+        )
+
+        # creating flags for if a function was run
+        self.flags = dict(
+            general_network=False,
+            general_data=False,
+            generation_data=False,
+            tuning_data=False,
         )
 
     def general_network(
@@ -39,6 +49,7 @@ class BaseConfigurator:
         metrics: list[str] = ["mse"],
         loss_fn_str: str = "mse",
     ):
+        self.flags["general_network"] = True
         network = dict(
             input_dim=input_dim,
             output_dim=output_dim,
@@ -54,6 +65,7 @@ class BaseConfigurator:
         maximums_euler: dict = Defaults.MAXIMUMS_EULER,
         maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
     ):
+        self.flags["general_data"] = True
         features_euler = list(maximums_euler.keys())
         input_dict = {"time": 10}
         input_dict.update(maximums_quat)
@@ -85,6 +97,7 @@ class BaseConfigurator:
         rnd_method: str = "random",
         shuffle: bool = False,
     ):
+        self.flags["generation_data"] = True
         data = dict(
             run_time=run_time,
             frequency=frequency,
@@ -108,6 +121,7 @@ class BaseConfigurator:
         bias_inits: list[str] = Defaults.bias_inits,
         learning_rates: list[float] = Defaults.learning_rates,
     ):
+        self.flags["tuning_data"] = True
         tuner = dict(
             activation_fns=activation_fns,
             width_range=width_range,
@@ -120,35 +134,20 @@ class BaseConfigurator:
 
         self.config.update(tuner)
 
-    def configure(self, network=None, dirs=None, tuner=None, data=None):
-        if network is not None:
-            self.set_network(network)
-        if dirs is not None:
-            self.set_dirs(dirs)
-        if tuner is not None:
-            self.set_tuner(tuner)
-        if data is not None:
-            self.set_data(data)
-
-    def set_network(self, network):
-        self.config.update(network)
-
-    def set_dirs(self, dirs):
-        self.config.update(dirs)
-
-    def set_tuner(self, tuner):
-        self.config.update(tuner)
-
-    def set_data(self, data):
-        self.config.update(data)
-
     def write(self, indent=1):
         with self.path.open("w") as outfile:
             json.dump(self.config, outfile, indent=indent)
 
     def generate(self):
-        self.general_network()
-        self.general_data()
-        self.generation_data()
-        self.tuning_data()
+        methods = [
+            self.general_network,
+            self.general_data,
+            self.generation_data,
+            self.tuning_data,
+        ]
+        for method, key in zip(methods, self.flags):
+            if not self.flags[key]:
+                # print(self.flags[key])
+                # print(method.__name__)
+                method()
         self.write()

@@ -2,6 +2,7 @@
 import os
 import json
 import typing
+from typing import Union
 import tensorflow as tf
 from pathlib import Path
 from tensorflow import keras
@@ -24,14 +25,14 @@ class Manager:
 
     def __init__(
         self,
-        config_path: os.PathLike,
+        config_path: Union[os.PathLike, str],
         data_engine: typing.Callable,
         network_engine: typing.Callable,
         test_engine: typing.Callable,
-        model_dir: str = "models",
-        checkpoint_dir: str = "checkpoints",
-        tuner_dir: str = "tuners",
-        att_mode: str = "euler",
+        model_dir: Union[os.PathLike, str] = "models",
+        checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
+        tuner_dir: Union[os.PathLike, str] = "tuners",
+        att_mode: Union[os.PathLike, str] = "euler",
     ):
         # Initialize path objects
         self.config = self.load_config(Path(config_path))
@@ -50,6 +51,8 @@ class Manager:
             os.makedirs(dir, exist_ok=True)
 
     def load_config(self, config_path: os.PathLike) -> dict:
+        if not Path(config_path).is_file():
+            raise FileNotFoundError(f"Config file {config_path} not found")
         with config_path.open("r") as infile:
             return json.load(infile)
 
