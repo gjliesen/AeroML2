@@ -1,3 +1,4 @@
+import os
 import typing
 import json
 from pathlib import Path
@@ -7,7 +8,7 @@ from aero_ml.defaults import Defaults
 class BaseConfigurator:
     config: dict  # dictionary containing the configuration
 
-    def __init__(self, config_dir: str, config_name: str):
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
         """Configurator for the FF network, sets up default parameter config for network
         but the user can create new ones by calling the methods
 
@@ -15,11 +16,20 @@ class BaseConfigurator:
             config_dir (str): directory to store the configuration file
             config_name (str): name of the configuration file
         """
+        self.path = Path(config_path)
+
+        # If a full path is not provided the user must specify the config_name
+        if self.path.is_dir() and config_name == "":
+            raise ValueError(
+                "config_name must be specified if config_dir is a directory"
+            )
+        elif self.path.is_dir():
+            self.path = self.path / f"{config_name}.json"
+
         self.config = dict(
-            config_name=config_name,
-            config_dir=config_dir,
+            config_name=self.path.stem,
+            config_dir=self.path.parent,
         )
-        self.path = Path(f"{config_dir}/{config_name}.json")
 
     def general_network(
         self,
@@ -135,3 +145,10 @@ class BaseConfigurator:
     def write(self, indent=1):
         with self.path.open("w") as outfile:
             json.dump(self.config, outfile, indent=indent)
+
+    def generate(self):
+        self.general_network()
+        self.general_data()
+        self.generation_data()
+        self.tuning_data()
+        self.write()

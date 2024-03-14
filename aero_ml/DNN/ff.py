@@ -3,6 +3,7 @@ import typing
 import os
 import tensorflow as tf
 from tensorflow import keras
+from pathlib import Path
 
 # from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
@@ -191,7 +192,7 @@ class FFTestEngine(BaseTestEngine):
 class FFConfigurator(BaseConfigurator):
     config: dict
 
-    def __init__(self, config_name: str, config_dir: str = "configs"):
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
         """Configurator for the FF network, sets up default parameter config for network
         but the user can create new ones by calling the methods
 
@@ -199,20 +200,12 @@ class FFConfigurator(BaseConfigurator):
             config_dir (str): directory to store the configuration file
             config_name (str): name of the configuration file
         """
-        super().__init__(config_dir, config_name)
+        super().__init__(config_path, config_name)
 
 
-def generate_config(config_name: str, config_dir: str):
-    config = FFConfigurator(config_name, config_dir)
-    config.general_network()
-    config.general_data()
-    config.generation_data()
-    config.tuning_data()
-    config.write()
+config_name = "s2v_default"
+ff_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
 
-
-config_name = "ff_default"
-dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-ff_default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(ff_default_config_path):
-    generate_config(config_name, dirname)
+if not ff_default_config_path.exists():
+    cfg = FFConfigurator(ff_default_config_path)
+    cfg.generate()

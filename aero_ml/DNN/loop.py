@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+from pathlib import Path
 from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
@@ -270,7 +271,7 @@ class LoopTestEngine(BaseTestEngine):
 class LoopConfigurator(BaseConfigurator):
     config: dict
 
-    def __init__(self, config_name: str, config_dir: str = "configs"):
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
         """Configurator for the FF network, sets up default parameter config for network
         but the user can create new ones by calling the methods
 
@@ -278,7 +279,7 @@ class LoopConfigurator(BaseConfigurator):
             config_dir (str): directory to store the configuration file
             config_name (str): name of the configuration file
         """
-        super().__init__(config_dir, config_name)
+        super().__init__(config_path, config_name)
 
     def general_network(
         self,
@@ -324,17 +325,9 @@ class LoopConfigurator(BaseConfigurator):
         self.config.update(data)
 
 
-def generate_config(config_name: str, config_dir: str):
-    config = LoopConfigurator(config_name, config_dir)
-    config.general_network()
-    config.general_data()
-    config.generation_data()
-    config.tuning_data()
-    config.write()
-
-
 config_name = "loop_default"
-dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-loop_default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(loop_default_config_path):
-    generate_config(config_name, dirname)
+loop_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
+
+if not loop_default_config_path.exists():
+    cfg = LoopConfigurator(loop_default_config_path)
+    cfg.generate()

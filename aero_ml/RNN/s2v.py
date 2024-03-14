@@ -1,9 +1,10 @@
 # pyright: reportAttributeAccessIssue=false
-import typing
 import os
+import typing
 import numpy as np
 import pandas as pd
 import tensorflow as tf
+from pathlib import Path
 from tensorflow import keras
 from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
@@ -244,8 +245,10 @@ class S2VNetworkEngine(BaseNetworkEngine):
 
 
 class S2VTestEngine(BaseTestEngine):
-    def __init__(self, config: dict, data_engine: S2VDataEngine):
-        super().__init__(config, data_engine)
+    def __init__(
+        self, config: dict, data_engine: S2VDataEngine, att_mode: str = "Euler"
+    ):
+        super().__init__(config, data_engine, att_mode)
 
     def _extract_data(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
         """Extract the input and output data from the dataset.
@@ -335,7 +338,7 @@ class S2VTestEngine(BaseTestEngine):
 class S2VConfigurator(BaseConfigurator):
     config: dict
 
-    def __init__(self, config_name: str, config_dir: str = "configs"):
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
         """Configurator for the FF network, sets up default parameter config for network
         but the user can create new ones by calling the methods
 
@@ -343,7 +346,7 @@ class S2VConfigurator(BaseConfigurator):
             config_dir (str): directory to store the configuration file
             config_name (str): name of the configuration file
         """
-        super().__init__(config_dir, config_name)
+        super().__init__(config_path, config_name)
 
     def general_network(
         self,
@@ -389,17 +392,9 @@ class S2VConfigurator(BaseConfigurator):
         self.config.update(data)
 
 
-def generate_config(config_name: str, config_dir: str):
-    config = S2VConfigurator(config_name, config_dir)
-    config.general_network()
-    config.general_data()
-    config.generation_data()
-    config.tuning_data()
-    config.write()
-
-
 config_name = "s2v_default"
-dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-s2v_default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(s2v_default_config_path):
-    generate_config(config_name, dirname)
+s2v_default_config_path = Path(__file__) / "configs" / f"{config_name}.json"
+
+if not s2v_default_config_path.exists():
+    cfg = S2VConfigurator(s2v_default_config_path)
+    cfg.generate()

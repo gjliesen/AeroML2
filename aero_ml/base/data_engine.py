@@ -3,7 +3,7 @@ import tensorflow as tf
 import numpy as np
 from pathlib import Path
 from datetime import datetime
-from aero_ml.utils import timeit, parse_datetime
+from aero_ml.utils import timeit, get_most_recent
 from aero_ml.simulation.aircraft_sim import AircraftSim
 
 
@@ -209,59 +209,31 @@ class BaseDataEngine:
     ) -> tuple[tf.Tensor, tf.Tensor]:
         raise NotImplementedError("map_fn must be implemented in subclass")
 
-    def get_most_recent_dataset(self, folder_path: str = "data") -> str:
-        """Searches a given folder and dataset and looks for the most recently
-        generated one
-
-        Args:
-            folder_path (str): path to folder to search in
-            dataset_type (str): the type of dataset you're loading
-
-        Raises:
-            ValueError: dataset_type must be 'Train' or 'Val'
-
-        Returns:
-            str: if a files are found it will return the most recent one, otherwise
-            it wil return nothing
-        """
-        # List all files in the directory
-        dirs = os.listdir(folder_path)
-
-        # Filter files based on compatible data
-        filtered_dirs = [d for d in dirs if self.meta_data == d[16:]]
-
-        # Sort files by datetime
-        sorted_dirs = sorted(filtered_dirs, key=parse_datetime, reverse=True)
-
-        # check if the sorted files list is empty, raising error if true
-        if not sorted_dirs:
-            raise FileNotFoundError("No compatible files were found")
-
-        # Return the most recent file
-        return f"{folder_path}/{sorted_dirs[0]}"
-
     def load_dataset(
-        self,
-        fname: str = "",
-        search_dir: str = "data",
-    ) -> tuple[tf.data.Dataset, str]:
-        """_summary_
+        self, input_path: os.PathLike
+    ) -> tuple[tf.data.Dataset, os.PathLike]:
+        """Takes a directory or a filename, then loads and preprocesses a tfrecords
+        dataset
 
         Args:
-            fname (str, optional): _description_. Defaults to "".
-            search_dir (str, optional): _description_. Defaults to "data".
+            data_path (str, optional): Can be a filename or a directory, if it's a
+            filename it will be loaded otherwise the directory will be searched for a
+            compatible file. Defaults to Path("data").
 
         Returns:
             tuple[tf.data.Dataset, str]: _description_
         """
-        # loading data if fname is provided otherwise searching for the most recent
-        if fname == "":
-            data_dir = self.get_most_recent_dataset(search_dir)
-            fname = os.path.join(data_dir, "train.tfrecord")
+        # convert input_path to pathlib object
+        input_path = Path(input_path)
+        # loading data if path to file else find the most recent file in the directory
+        if input_path.is_dir():
+            file_path = get_most_recent(input_path, f"*{self.meta_data}/train.tfrecord")
         else:
-            data_dir = ""
+            file_path = input_path
+
+        data_path = file_path.parent
         # load the tf record dataset, parse the examples and normalize the data
-        dataset = tf.data.TFRecordDataset(fname)
+        dataset = tf.data.TFRecordDataset(str(file_path))
         dataset = dataset.map(self.map_fn)
         dataset = dataset.map(
             lambda input_state, output_state: (
@@ -270,7 +242,7 @@ class BaseDataEngine:
             )
         )
 
-        return (dataset, data_dir)
+        return (dataset, data_path)
 
     def normalize(self, example: object, is_input: bool, invert=False):
         """Normalizes the given example based on known max values.

@@ -3,27 +3,28 @@ import os
 import json
 import typing
 import tensorflow as tf
+from pathlib import Path
 from tensorflow import keras
 from aero_ml.utils import get_most_recent
 
 
 class Manager:
-    config_path: str  # The path to the configuration file
+    config_path: Path  # The path to the configuration file
     data_engine: typing.Callable  # the data engine for the network, will be a subclass
     network_engine: typing.Callable  # the network engine, will be a subclass
     test_engine: typing.Callable  # The test engine, will be a subclass
-    model_dir: str  # The directory to save the model
-    checkpoint_dir: str  # The directory to save the model checkpoints
-    tuner_dir: str  # The directory to save the tuner
+    model_dir: Path  # The directory to save the model
+    checkpoint_dir: Path  # The directory to save the model checkpoints
+    tuner_dir: Path  # The directory to save the tuner
     config: dict  # Configuration for the overrall network
-    data_dir: str  # Directory where the loaded data is stored
+    data_dir: Path  # Directory where the loaded data is stored
     dataset: tf.data.Dataset  # The full dataset
     train_dataset: tf.data.Dataset  # The training dataset
     val_dataset: tf.data.Dataset  # The validation dataset
 
     def __init__(
         self,
-        config_path: str,
+        config_path: os.PathLike,
         data_engine: typing.Callable,
         network_engine: typing.Callable,
         test_engine: typing.Callable,
@@ -32,10 +33,11 @@ class Manager:
         tuner_dir: str = "tuners",
         att_mode: str = "euler",
     ):
-        self.config = self.load_config(config_path)
-        self.model_dir = model_dir
-        self.checkpoint_dir = checkpoint_dir
-        self.tuner_dir = tuner_dir
+        # Initialize path objects
+        self.config = self.load_config(Path(config_path))
+        self.model_dir = Path(model_dir)
+        self.checkpoint_dir = Path(checkpoint_dir)
+        self.tuner_dir = Path(tuner_dir)
         # Initialize the engines
         self.data_engine = data_engine(self.config)
         self.network_engine = network_engine(self.config)
@@ -47,8 +49,8 @@ class Manager:
         for dir in [self.model_dir, self.checkpoint_dir, self.tuner_dir]:
             os.makedirs(dir, exist_ok=True)
 
-    def load_config(self, config_path: str) -> dict:
-        with open(config_path, "r") as infile:
+    def load_config(self, config_path: os.PathLike) -> dict:
+        with config_path.open("r") as infile:
             return json.load(infile)
 
     def generate_dataset(self, shuffle=None):
@@ -153,9 +155,12 @@ class Manager:
     def test_model(self):
         self.test_engine.test_model(self.model, self.data_dir)
 
-    def load_model(self, model_path: str = ""):
-        if model_path == "":
-            model_path = get_most_recent("models")
+    def load_model(self, input_path: str = ""):
+        model_path = Path(input_path)
+
+        if not model_path.is_file():
+            model_path = get_most_recent(self.model_dir)
+
         self.model = keras.models.load_model(
-            model_path, custom_objects={"root_mean_squared_error": "rmse"}
+            str(input_path), custom_objects={"root_mean_squared_error": "rmse"}
         )
