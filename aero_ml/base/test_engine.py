@@ -5,6 +5,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import tensorflow as tf
+from pathlib import Path
 from plotly.subplots import make_subplots
 from aero_ml.simulation.aircraft_sim import quat_to_euler
 
@@ -79,23 +80,18 @@ class BaseTestEngine:
             data_dir (str): directory containing the test data
         """
         # Defining the directories
-        test_dir = f"{data_dir}/test"
-        plot_dir = f"test_data_plots/{data_dir}"
-        os.makedirs(plot_dir, exist_ok=True)
-
-        # Placing all test data records into a list
-        files = os.listdir(test_dir)
+        test_path = Path(f"{data_dir}/test")
+        plot_path = Path(f"test_data_plots/{data_dir}")
+        plot_path.mkdir(parents=True, exist_ok=True)
 
         # Looping through test_data and plotting
-        for fname in files:
-            # Define test record file name, joining the path
-            tfrecord_path = f"{test_dir}/{fname}"
+        for tfrecord_path in test_path.iterdir():
             # Creating a comparison dataframe to plot
             comp_df = self._process_data(tfrecord_path, model_to_test)
             # Plotting comparison dataframe
-            self.test_plots(comp_df, fname, plot_dir)
+            self.test_plots(comp_df, plot_path)
 
-    def _process_data(self, fname: str, model_to_test) -> pd.DataFrame:
+    def _process_data(self, path: Path, model_to_test) -> pd.DataFrame:
         """Process the test data and return a dataframe for plotting.
 
         Args:
@@ -106,7 +102,7 @@ class BaseTestEngine:
             pd.DataFrame: dataframe of the test and predicted data used for plotting
         """
         # Looping through and building dataset from tfrecords
-        dataset, _ = self.data_eng.load_dataset(fname=fname)
+        dataset, _ = self.data_eng.load_dataset(fname=str(path))
         # Extracting the normalized input and output array from the datset
         norm_input_arr, norm_output_arr = self._extract_data(dataset)
 
@@ -238,9 +234,7 @@ class BaseTestEngine:
         # Return dataframe for plotting
         return comp_df
 
-    def test_plots(
-        self, comp_df: pd.DataFrame, title: str, plot_dir: str, height: int = 6000
-    ):
+    def test_plots(self, comp_df: pd.DataFrame, path: Path, height: int = 6000):
         """Plot the test data and the model predictions.
 
         Args:
@@ -272,5 +266,5 @@ class BaseTestEngine:
                     col=1,
                 )
         # Displaying the figure
-        fig.update_layout(hovermode="x unified", title=title, height=height)
-        fig.write_html(f"{plot_dir}/{title}.html")
+        fig.update_layout(hovermode="x unified", title=path.stem, height=height)
+        fig.write_html(path.with_suffix(".html"))

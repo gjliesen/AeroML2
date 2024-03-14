@@ -1,6 +1,7 @@
 import os
 import tensorflow as tf
 import numpy as np
+from pathlib import Path
 from datetime import datetime
 from aero_ml.utils import timeit, parse_datetime
 from aero_ml.simulation.aircraft_sim import AircraftSim
@@ -50,26 +51,33 @@ class BaseDataEngine:
         if shuffle is not None:
             self.shuffle = shuffle
         self.length = 0
+
         # Initialize the simulation object
         self.sim = AircraftSim()
-        # Training dataset
-        dir_name = f"{self.date_str}-{self.meta_data}"
 
-        train_path = os.path.join(os.getcwd(), f"data/{dir_name}")
+        # Creating training dataset path
+        dir_name = f"{self.date_str}-{self.meta_data}"
+        train_path = Path.cwd().joinpath("data", dir_name, "train.tfrecord")
+        train_path.parent.mkdir(parents=True, exist_ok=True)
         os.makedirs(train_path, exist_ok=True)
-        self.write_tfrecords("train", train_path, self.iterations)
+
+        # Write training datasets to folder
+        self.write_tfrecords(train_path, self.iterations)
         print(self.length)
+
         # Create folder for test data
-        test_path = os.path.join(train_path, "test")
-        os.makedirs(test_path, exist_ok=True)
+        test_path = train_path.parent.joinpath("test")
+        test_path.mkdir(parents=True, exist_ok=True)
+
         # setting shuffle back to false for test data
         self.shuffle = False
         # Write test datasets to folder
         for case in range(self.test_cases):
-            self.write_tfrecords(f"test_{case}", test_path, 1)
+            tmp_path = test_path.joinpath(f"test_{case}.tfrecord")
+            self.write_tfrecords(tmp_path, 1)
 
     @timeit
-    def write_tfrecords(self, name: str, path: str, iters: int):
+    def write_tfrecords(self, path: Path, iters: int):
         """creates a directory for  the given path, runs the simulation for iters number
         of times and writes the output to a tfrecord file
 
@@ -80,9 +88,8 @@ class BaseDataEngine:
             path (os.PathLike): path to write the file
             iters (int): number of times to run the simulation
         """
-        print(f"starting write {name} records...")
-        record_path = os.path.join(path, f"{name}.tfrecord")
-        with tf.io.TFRecordWriter(record_path) as tfrecord:
+        print(f"starting write to {path.name}...")
+        with tf.io.TFRecordWriter(str(path)) as tfrecord:
             for itr in range(iters):
                 valid = self.run_sim(itr)
                 if valid:

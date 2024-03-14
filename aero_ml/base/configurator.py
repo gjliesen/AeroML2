@@ -1,5 +1,6 @@
 import typing
 import json
+from pathlib import Path
 from aero_ml.defaults import Defaults
 
 
@@ -18,7 +19,7 @@ class BaseConfigurator:
             config_name=config_name,
             config_dir=config_dir,
         )
-        self.path = f"{config_dir}/{config_name}.json"
+        self.path = Path(f"{config_dir}/{config_name}.json")
 
     def general_network(
         self,
@@ -132,5 +133,5 @@ class BaseConfigurator:
         self.config.update(data)
 
     def write(self, indent=1):
-        with open(self.path, "w") as outfile:
+        with self.path.open("w") as outfile:
             json.dump(self.config, outfile, indent=indent)
