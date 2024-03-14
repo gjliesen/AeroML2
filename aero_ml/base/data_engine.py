@@ -49,6 +49,7 @@ class BaseDataEngine:
         """Function to generate the training and test datasets for the network."""
         if shuffle is not None:
             self.shuffle = shuffle
+        self.length = 0
         # Initialize the simulation object
         self.sim = AircraftSim()
         # Training dataset
@@ -57,7 +58,7 @@ class BaseDataEngine:
         train_path = os.path.join(os.getcwd(), f"data/{dir_name}")
         os.makedirs(train_path, exist_ok=True)
         self.write_tfrecords("train", train_path, self.iterations)
-
+        print(self.length)
         # Create folder for test data
         test_path = os.path.join(train_path, "test")
         os.makedirs(test_path, exist_ok=True)

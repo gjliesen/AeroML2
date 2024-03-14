@@ -43,6 +43,7 @@ class S2VDataEngine(BaseDataEngine):
 
             example = tf.train.Example(features=tf.train.Features(feature=data))
             tfrecord.write(example.SerializeToString())
+            self.length += 1
 
     def extract_data(self):
         """
@@ -88,7 +89,9 @@ class S2VDataEngine(BaseDataEngine):
         input_state = tf.io.parse_tensor(example["input_state"], out_type=tf.float32)
         output_state = tf.io.parse_tensor(example["output_state"], out_type=tf.float32)
 
-        return (input_state, output_state)
+        input_state = tf.reshape(input_state, (1000, 13))
+        output_state = tf.reshape(output_state, (1, 13))
+        return input_state, output_state
 
     def normalize(
         self, example: tf.Tensor, is_input: bool, invert: bool = False
@@ -106,13 +109,18 @@ class S2VDataEngine(BaseDataEngine):
         """
         if is_input:
             norm_factors = self.input_norm_factors
+            dim = len(norm_factors)
+            max_values_tensor = tf.constant(
+                norm_factors, shape=(1, 1, dim), dtype=tf.float32
+            )
+
         else:
             norm_factors = self.output_norm_factors
+            dim = len(norm_factors)
+            max_values_tensor = tf.constant(
+                norm_factors, shape=(1, dim), dtype=tf.float32
+            )
 
-        dim = len(norm_factors)
-        max_values_tensor = tf.constant(
-            norm_factors, shape=(1, 1, dim), dtype=tf.float32
-        )
         if invert:
             normalized_example = tf.multiply(example, max_values_tensor)
         else:
@@ -127,22 +135,25 @@ class S2VNetworkEngine(BaseNetworkEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
-    def build_RNN(self, width):
+    def build_model(self, width):
         keras.backend.clear_session()
         # Define the distribution strategy for training
         scope = self.choose_distribution_strategy()
 
-        input_shape = [1000, self.input_dim]
         with scope():
             model = keras.models.Sequential()
             model.add(
                 keras.layers.LSTM(
                     width,
                     return_sequences=True,
-                    input_shape=input_shape,
+                    input_shape=(1000, self.input_dim),
                 )
             )
-            model.add(keras.layers.LSTM(width))
+            model.add(
+                keras.layers.LSTM(
+                    width,
+                )
+            )
             model.add(keras.layers.Dense(13))
             model.compile(
                 optimizer=self.optimizer,
