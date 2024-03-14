@@ -6,11 +6,80 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from pathlib import Path
+from typing import Union
+from aero_ml.base.manager import BaseManager
 from aero_ml.defaults import Defaults
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
 from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
+
+
+class LoopConfigurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_path, config_name)
+
+    def general_network(
+        self,
+        input_dim: int = 13,
+        output_dim: int = 13,
+        optimizer: str = "adam",
+        metrics: list[str] = ["mse"],
+        loss_fn_str: str = "rmse",
+    ):
+        super().general_network()
+        network = dict(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            optimizer=optimizer,
+            metrics=metrics,
+            loss_fn_str=loss_fn_str,
+        )
+
+        self.config.update(network)
+
+    def general_data(
+        self,
+        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
+        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
+    ):
+        super().general_data()
+        features_euler = list(maximums_euler.keys())
+        input_dict = maximums_quat
+
+        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
+
+        # Configuring DNN outputs
+        output_dict = maximums_quat
+        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
+
+        data = dict(
+            input_features=input_features,
+            input_features_euler=features_euler,
+            input_norm_factors=input_norm_factors,
+            output_features=output_features,
+            output_features_euler=features_euler,
+            output_norm_factors=output_norm_factors,
+        )
+
+        self.config.update(data)
+
+
+config_name = "loop_default"
+loop_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
+
+if not loop_default_config_path.exists():
+    cfg = LoopConfigurator(loop_default_config_path)
+    cfg.generate()
 
 
 class LoopDataEngine(BaseDataEngine):
@@ -268,68 +337,16 @@ class LoopTestEngine(BaseTestEngine):
         return comp_df
 
 
-class LoopConfigurator(BaseConfigurator):
-    config: dict
-
-    def __init__(self, config_path: os.PathLike, config_name: str = ""):
-        """Configurator for the FF network, sets up default parameter config for network
-        but the user can create new ones by calling the methods
-
-        Args:
-            config_dir (str): directory to store the configuration file
-            config_name (str): name of the configuration file
-        """
-        super().__init__(config_path, config_name)
-
-    def general_network(
+class LoopManager(BaseManager):
+    def __init__(
         self,
-        input_dim: int = 13,
-        output_dim: int = 13,
-        optimizer: str = "adam",
-        metrics: list[str] = ["mse"],
-        loss_fn_str: str = "rmse",
+        config_path: Union[os.PathLike, str],
+        model_dir: Union[os.PathLike, str] = "models",
+        checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
+        tuner_dir: Union[os.PathLike, str] = "tuners",
+        att_mode: str = "euler",
     ):
-        super().general_network()
-        network = dict(
-            input_dim=input_dim,
-            output_dim=output_dim,
-            optimizer=optimizer,
-            metrics=metrics,
-            loss_fn_str=loss_fn_str,
-        )
-
-        self.config.update(network)
-
-    def general_data(
-        self,
-        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
-        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
-    ):
-        super().general_data()
-        features_euler = list(maximums_euler.keys())
-        input_dict = maximums_quat
-
-        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
-
-        # Configuring DNN outputs
-        output_dict = maximums_quat
-        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
-
-        data = dict(
-            input_features=input_features,
-            input_features_euler=features_euler,
-            input_norm_factors=input_norm_factors,
-            output_features=output_features,
-            output_features_euler=features_euler,
-            output_norm_factors=output_norm_factors,
-        )
-
-        self.config.update(data)
-
-
-config_name = "loop_default"
-loop_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
-
-if not loop_default_config_path.exists():
-    cfg = LoopConfigurator(loop_default_config_path)
-    cfg.generate()
+        super().__init__(config_path, model_dir, checkpoint_dir, tuner_dir, att_mode)
+        self.data_engine = LoopDataEngine(self.config)
+        self.network_engine = LoopNetworkEngine(self.config)
+        self.test_engine = LoopTestEngine(self.config, self.data_engine, att_mode)

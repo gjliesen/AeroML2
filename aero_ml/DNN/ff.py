@@ -1,15 +1,39 @@
 # pyright: reportAttributeAccessIssue=false
 import typing
+from typing import Union
 import os
 import tensorflow as tf
 from tensorflow import keras
 from pathlib import Path
 
 # from aero_ml.defaults import Defaults
+from aero_ml.base.manager import BaseManager
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
 from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
+
+
+class FFConfigurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_path, config_name)
+
+
+config_name = "s2v_default"
+ff_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
+
+if not ff_default_config_path.exists():
+    cfg = FFConfigurator(ff_default_config_path)
+    cfg.generate()
 
 
 class FFDataEngine(BaseDataEngine):
@@ -185,27 +209,20 @@ class FFNetworkEngine(BaseNetworkEngine):
 
 
 class FFTestEngine(BaseTestEngine):
-    def __init__(self, config, data_engine):
-        super().__init__(config, data_engine)
+    def __init__(self, config, data_engine, att_mode: str = "euler"):
+        super().__init__(config, data_engine, att_mode)
 
 
-class FFConfigurator(BaseConfigurator):
-    config: dict
-
-    def __init__(self, config_path: os.PathLike, config_name: str = ""):
-        """Configurator for the FF network, sets up default parameter config for network
-        but the user can create new ones by calling the methods
-
-        Args:
-            config_dir (str): directory to store the configuration file
-            config_name (str): name of the configuration file
-        """
-        super().__init__(config_path, config_name)
-
-
-config_name = "s2v_default"
-ff_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
-
-if not ff_default_config_path.exists():
-    cfg = FFConfigurator(ff_default_config_path)
-    cfg.generate()
+class FFManager(BaseManager):
+    def __init__(
+        self,
+        config_path: Union[os.PathLike, str],
+        model_dir: Union[os.PathLike, str] = "models",
+        checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
+        tuner_dir: Union[os.PathLike, str] = "tuners",
+        att_mode: str = "euler",
+    ):
+        super().__init__(config_path, model_dir, checkpoint_dir, tuner_dir, att_mode)
+        self.data_engine = FFDataEngine(self.config)
+        self.network_engine = FFNetworkEngine(self.config)
+        self.test_engine = FFTestEngine(self.config, self.data_engine, att_mode)

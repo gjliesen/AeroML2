@@ -9,7 +9,7 @@ from tensorflow import keras
 from aero_ml.utils import get_most_recent
 
 
-class Manager:
+class BaseManager:
     config_path: Path  # The path to the configuration file
     data_engine: typing.Callable  # the data engine for the network, will be a subclass
     network_engine: typing.Callable  # the network engine, will be a subclass
@@ -26,13 +26,10 @@ class Manager:
     def __init__(
         self,
         config_path: Union[os.PathLike, str],
-        data_engine: typing.Callable,
-        network_engine: typing.Callable,
-        test_engine: typing.Callable,
         model_dir: Union[os.PathLike, str] = "models",
         checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
         tuner_dir: Union[os.PathLike, str] = "tuners",
-        att_mode: Union[os.PathLike, str] = "euler",
+        att_mode: str = "euler",
     ):
         # Initialize path objects
         self.config = self.load_config(Path(config_path))
@@ -40,9 +37,6 @@ class Manager:
         self.checkpoint_dir = Path(checkpoint_dir)
         self.tuner_dir = Path(tuner_dir)
         # Initialize the engines
-        self.data_engine = data_engine(self.config)
-        self.network_engine = network_engine(self.config)
-        self.test_engine = test_engine(self.config, self.data_engine, att_mode)
         self.callbacks = []
 
     def create_dirs(self):

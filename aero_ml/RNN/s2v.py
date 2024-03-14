@@ -6,7 +6,9 @@ import pandas as pd
 import tensorflow as tf
 from pathlib import Path
 from tensorflow import keras
+from typing import Union
 from aero_ml.defaults import Defaults
+from aero_ml.base.manager import BaseManager
 from aero_ml.base.data_engine import BaseDataEngine
 from aero_ml.base.network_engine import BaseNetworkEngine
 from aero_ml.base.test_engine import BaseTestEngine
@@ -423,3 +425,18 @@ class S2VTestEngine(BaseTestEngine):
 
         # Return dataframe for plotting
         return comp_df
+
+
+class S2VManager(BaseManager):
+    def __init__(
+        self,
+        config_path: Union[os.PathLike, str],
+        model_dir: Union[os.PathLike, str] = "models",
+        checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
+        tuner_dir: Union[os.PathLike, str] = "tuners",
+        att_mode: str = "euler",
+    ):
+        super().__init__(config_path, model_dir, checkpoint_dir, tuner_dir, att_mode)
+        self.data_engine = S2VDataEngine(self.config)
+        self.network_engine = S2VNetworkEngine(self.config)
+        self.test_engine = S2VTestEngine(self.config, self.data_engine, att_mode)
