@@ -13,6 +13,96 @@ from aero_ml.base.test_engine import BaseTestEngine
 from aero_ml.base.configurator import BaseConfigurator
 
 
+class S2VConfigurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_path, config_name)
+
+    def general_network(
+        self,
+        input_dim: int = 13,
+        output_dim: int = 13,
+        optimizer: str = "adam",
+        metrics: list[str] = ["mse"],
+        loss_fn_str: str = "mse",
+    ):
+        super().general_network()
+        network = dict(
+            input_dim=input_dim,
+            output_dim=output_dim,
+            optimizer=optimizer,
+            metrics=metrics,
+            loss_fn_str=loss_fn_str,
+        )
+
+        self.config.update(network)
+
+    def general_data(
+        self,
+        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
+        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
+    ):
+        super().general_data()
+        features_euler = list(maximums_euler.keys())
+        input_dict = maximums_quat
+
+        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
+
+        # Configuring DNN outputs
+        output_dict = maximums_quat
+        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
+
+        data = dict(
+            input_features=input_features,
+            input_features_euler=features_euler,
+            input_norm_factors=input_norm_factors,
+            output_features=output_features,
+            output_features_euler=features_euler,
+            output_norm_factors=output_norm_factors,
+        )
+
+        self.config.update(data)
+
+    def generation_data(
+        self,
+        run_time: int = 1,
+        frequency: float = 0.01,
+        iterations: int = 200000,
+        test_cases: int = 30,
+        constraints: dict = Defaults.constraints,
+        rnd_method: str = "random",
+        shuffle: bool = False,
+    ):
+        super().generation_data()
+        data = dict(
+            run_time=run_time,
+            frequency=frequency,
+            iterations=iterations,
+            length=(run_time / frequency) * iterations,
+            test_cases=test_cases,
+            constraints=constraints,
+            rnd_method=rnd_method,
+            shuffle=shuffle,
+        )
+
+        self.config.update(data)
+
+
+config_name = "s2v_default"
+s2v_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
+if not s2v_default_config_path.exists():
+    cfg = S2VConfigurator(s2v_default_config_path)
+    cfg.generate()
+
+
 class S2VDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
@@ -333,93 +423,3 @@ class S2VTestEngine(BaseTestEngine):
 
         # Return dataframe for plotting
         return comp_df
-
-
-class S2VConfigurator(BaseConfigurator):
-    config: dict
-
-    def __init__(self, config_path: os.PathLike, config_name: str = ""):
-        """Configurator for the FF network, sets up default parameter config for network
-        but the user can create new ones by calling the methods
-
-        Args:
-            config_dir (str): directory to store the configuration file
-            config_name (str): name of the configuration file
-        """
-        super().__init__(config_path, config_name)
-
-    def general_network(
-        self,
-        input_dim: int = 13,
-        output_dim: int = 13,
-        optimizer: str = "adam",
-        metrics: list[str] = ["mse"],
-        loss_fn_str: str = "mse",
-    ):
-        super().general_network()
-        network = dict(
-            input_dim=input_dim,
-            output_dim=output_dim,
-            optimizer=optimizer,
-            metrics=metrics,
-            loss_fn_str=loss_fn_str,
-        )
-
-        self.config.update(network)
-
-    def general_data(
-        self,
-        maximums_euler: dict = Defaults.MAXIMUMS_EULER,
-        maximums_quat: dict = Defaults.MAXIMUMS_QUAT,
-    ):
-        super().general_data()
-        features_euler = list(maximums_euler.keys())
-        input_dict = maximums_quat
-
-        [*input_features], [*input_norm_factors] = zip(*input_dict.items())
-
-        # Configuring DNN outputs
-        output_dict = maximums_quat
-        [*output_features], [*output_norm_factors] = zip(*output_dict.items())
-
-        data = dict(
-            input_features=input_features,
-            input_features_euler=features_euler,
-            input_norm_factors=input_norm_factors,
-            output_features=output_features,
-            output_features_euler=features_euler,
-            output_norm_factors=output_norm_factors,
-        )
-
-        self.config.update(data)
-
-    def generation_data(
-        self,
-        run_time: int = 1,
-        frequency: float = 0.01,
-        iterations: int = 200000,
-        test_cases: int = 30,
-        constraints: dict = Defaults.constraints,
-        rnd_method: str = "random",
-        shuffle: bool = False,
-    ):
-        super().generation_data()
-        data = dict(
-            run_time=run_time,
-            frequency=frequency,
-            iterations=iterations,
-            length=(run_time / frequency) * iterations,
-            test_cases=test_cases,
-            constraints=constraints,
-            rnd_method=rnd_method,
-            shuffle=shuffle,
-        )
-
-        self.config.update(data)
-
-
-config_name = "s2v_default"
-s2v_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
-if not s2v_default_config_path.exists():
-    cfg = S2VConfigurator(s2v_default_config_path)
-    cfg.generate()
