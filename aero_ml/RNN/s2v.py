@@ -370,9 +370,9 @@ class S2VTestEngine(BaseTestEngine):
             )
         return (norm_input_arr, norm_output_arr)
 
-    def _process_data(self, fname: str, model_to_test) -> pd.DataFrame:
+    def _process_data(self, path: Path, model_to_test) -> pd.DataFrame:
         # Looping through and building dataset from tfrecords
-        dataset, _ = self.data_eng.load_dataset(fname=fname)
+        dataset, _ = self.data_eng.load_dataset(path)
         # Extracting the normalized input and output array from the datset
         norm_input_arr, norm_output_arr = self._extract_data(dataset)
 
