@@ -71,7 +71,7 @@ class BaseNetworkEngine:
 
         if self.loss_fn_str == "rmse":
 
-            @keras.saving.register_keras_serializable(name="rmse")
+            @keras.utils.register_keras_serializable(name="rmse")
             def root_mean_squared_error(y_true, y_pred):
                 return tf.sqrt(
                     tf.reduce_mean(tf.square(y_pred - y_true))

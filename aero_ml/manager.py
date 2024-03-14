@@ -152,5 +152,5 @@ class Manager:
         if model_path == "":
             model_path = get_most_recent("models")
         self.model = keras.models.load_model(
-            model_path, custom_objects={"custom_function": "rmse"}
+            model_path, custom_objects={"root_mean_squared_error": "rmse"}
         )
