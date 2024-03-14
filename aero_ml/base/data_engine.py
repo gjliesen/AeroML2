@@ -3,6 +3,7 @@ import tensorflow as tf
 import numpy as np
 from pathlib import Path
 from datetime import datetime
+from typing import Union
 from aero_ml.utils import timeit, get_most_recent
 from aero_ml.simulation.aircraft_sim import AircraftSim
 
@@ -209,7 +210,7 @@ class BaseDataEngine:
         raise NotImplementedError("map_fn must be implemented in subclass")
 
     def load_dataset(
-        self, input_path: os.PathLike
+        self, input_path: Union[os.PathLike, str]
     ) -> tuple[tf.data.Dataset, os.PathLike]:
         """Takes a directory or a filename, then loads and preprocesses a tfrecords
         dataset

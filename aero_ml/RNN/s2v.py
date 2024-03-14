@@ -108,6 +108,7 @@ if not s2v_default_config_path.exists():
 class S2VDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
+        self.seq_len = int(config["run_time"] / config["frequency"])
 
     def write_example(self, tfrecord: tf.io.TFRecordWriter):
         """Write example to tfrecord file
@@ -182,7 +183,7 @@ class S2VDataEngine(BaseDataEngine):
         input_state = tf.io.parse_tensor(example["input_state"], out_type=tf.float32)
         output_state = tf.io.parse_tensor(example["output_state"], out_type=tf.float32)
 
-        input_state = tf.reshape(input_state, (1000, 13))
+        input_state = tf.reshape(input_state, (self.seq_len, 13))
         output_state = tf.reshape(output_state, (1, 13))
         return input_state, output_state
 
@@ -239,7 +240,7 @@ class S2VNetworkEngine(BaseNetworkEngine):
                 keras.layers.LSTM(
                     width,
                     return_sequences=True,
-                    input_shape=(1000, self.input_dim),
+                    input_shape=(None, self.input_dim),
                 )
             )
             model.add(

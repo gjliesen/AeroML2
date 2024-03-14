@@ -54,9 +54,9 @@ class BaseManager:
         """wrapper for the data engine generate_dataset method"""
         self.data_engine.generate_dataset(shuffle)
 
-    def load_dataset(self, search_dir: str = "data"):
+    def load_dataset(self, input_path: Union[os.PathLike, str] = "data"):
         """wrapper for the data engine load_dataset method"""
-        dataset, data_dir = self.data_engine.load_dataset(search_dir=search_dir)
+        dataset, data_dir = self.data_engine.load_dataset(input_path)
         self.dataset = dataset
         self.data_dir = data_dir
 
