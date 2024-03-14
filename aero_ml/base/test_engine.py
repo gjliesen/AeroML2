@@ -101,7 +101,7 @@ class BaseTestEngine:
             pd.DataFrame: dataframe of the test and predicted data used for plotting
         """
         # Looping through and building dataset from tfrecords
-        dataset, _ = self.data_eng.load_dataset(fname=str(path))
+        dataset, _ = self.data_eng.load_dataset(path)
         # Extracting the normalized input and output array from the datset
         norm_input_arr, norm_output_arr = self._extract_data(dataset)
 
