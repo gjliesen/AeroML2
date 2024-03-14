@@ -30,6 +30,7 @@ class Manager:
         model_dir: str = "models",
         checkpoint_dir: str = "checkpoints",
         tuner_dir: str = "tuners",
+        att_mode: str = "euler",
     ):
         self.config = self.load_config(config_path)
         self.model_dir = model_dir
@@ -38,7 +39,7 @@ class Manager:
         # Initialize the engines
         self.data_engine = data_engine(self.config)
         self.network_engine = network_engine(self.config)
-        self.test_engine = test_engine(self.config, self.data_engine)
+        self.test_engine = test_engine(self.config, self.data_engine, att_mode)
         self.callbacks = []
 
     def create_dirs(self):

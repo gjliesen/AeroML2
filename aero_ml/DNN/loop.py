@@ -185,8 +185,8 @@ class LoopNetworkEngine(BaseNetworkEngine):
 
 
 class LoopTestEngine(BaseTestEngine):
-    def __init__(self, config: dict, data_engine: LoopDataEngine):
-        super().__init__(config, data_engine)
+    def __init__(self, config: dict, data_engine: LoopDataEngine, att_mode: str):
+        super().__init__(config, data_engine, att_mode)
 
     def _extract_data(self, dataset: tf.data.Dataset) -> tuple[np.ndarray, np.ndarray]:
         """Extract the input and output data from the dataset.
