@@ -80,15 +80,13 @@ class BaseTestEngine:
         """
         # Defining the directories
         test_path = Path(f"{data_dir}/test")
-        plot_path = Path(f"test_data_plots/{data_dir}")
-        plot_path.mkdir(parents=True, exist_ok=True)
 
         # Looping through test_data and plotting
         for tfrecord_path in test_path.iterdir():
             # Creating a comparison dataframe to plot
             comp_df = self._process_data(tfrecord_path, model_to_test)
             # Plotting comparison dataframe
-            self.test_plots(comp_df, plot_path)
+            self.test_plots(comp_df, tfrecord_path)
 
     def _process_data(self, path: Path, model_to_test) -> pd.DataFrame:
         """Process the test data and return a dataframe for plotting.
@@ -265,5 +263,7 @@ class BaseTestEngine:
                     col=1,
                 )
         # Displaying the figure
-        fig.update_layout(hovermode="x unified", title=path.stem, height=height)
-        fig.write_html(path.with_suffix(".html"))
+        plot_path = "test_data_plots" / path
+        plot_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.update_layout(hovermode="x unified", title=plot_path.stem, height=height)
+        fig.write_html(plot_path.with_suffix(".html"))

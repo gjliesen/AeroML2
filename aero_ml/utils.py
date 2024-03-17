@@ -1,5 +1,6 @@
 import time
 import os
+from typing import Union
 from pathlib import Path
 
 
@@ -16,7 +17,7 @@ def timeit(f):
     return timed
 
 
-def get_most_recent(folder_path: os.PathLike, filter: str = "*") -> Path:
+def get_most_recent(folder_path: Union[os.PathLike, str], filter: str = "*") -> Path:
     """Retrieves the most recent file from the specified directory
 
     Args:

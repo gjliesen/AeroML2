@@ -6,9 +6,7 @@ from plotly.subplots import make_subplots
 from scipy.integrate import solve_ivp
 import pyproj
 
-# from .aero_parameters_old import Aero_Parameters
-# from .aero_parameters import Aero_Parameters
-from .aero_parameters1d import AeroParameters
+from aero_ml.simulation.aero_parameters1d import AeroParameters
 
 
 @jit(nopython=True)

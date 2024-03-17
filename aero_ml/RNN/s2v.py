@@ -220,7 +220,8 @@ class S2VDataEngine(BaseDataEngine):
         else:
             normalized_example = tf.divide(example, max_values_tensor)
 
-        normalized_example = tf.squeeze(normalized_example, axis=0)
+        if len(normalized_example.shape) == 3 and normalized_example.shape[0] == 1:
+            normalized_example = tf.squeeze(normalized_example, axis=0)
 
         return normalized_example
 
@@ -379,13 +380,15 @@ class S2VTestEngine(BaseTestEngine):
         # Running the inputs through the model
         # initializing the model output array
         norm_model_output = np.zeros((norm_output_arr.shape))
+        norm_model_input = np.zeros((1, *norm_output_arr.shape))
         # setting the first input to the first input of the test data
         norm_model_output[0] = norm_input_arr[0]
         for i in range(1, len(norm_output_arr)):
             # growing the sequence of inputs at each time step
-            input_state = norm_model_output[0:i]
+            norm_model_input[0, -i:] = norm_model_output[:i]
             # Getting the next state from the model
-            output_state = model_to_test(input_state)
+            print(norm_model_input)
+            output_state = model_to_test(norm_model_input)
             # adding that state to the output array
             norm_model_output[i] = output_state
 
