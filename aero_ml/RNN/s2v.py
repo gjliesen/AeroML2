@@ -77,7 +77,7 @@ class S2VConfigurator(BaseConfigurator):
         self,
         run_time: int = 1,
         frequency: float = 0.01,
-        iterations: int = 200000,
+        iterations: int = 30000,
         test_cases: int = 30,
         constraints: dict = Defaults.constraints,
         rnd_method: str = "random",
