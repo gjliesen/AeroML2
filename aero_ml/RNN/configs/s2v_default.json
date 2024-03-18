@@ -98,8 +98,8 @@
  ],
  "run_time": 1,
  "frequency": 0.01,
- "iterations": 200000,
- "length": 20000000.0,
+ "iterations": 30000,
+ "length": 3000000.0,
  "test_cases": 30,
  "constraints": {
   "lat": [
