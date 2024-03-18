@@ -6,7 +6,9 @@ import tensorflow as tf
 import keras_tuner as kt
 import matplotlib.pyplot as plt
 import typing
+from typing import Union
 from datetime import datetime
+from pathlib import Path
 from aero_ml.utils import get_most_recent
 
 
@@ -179,7 +181,7 @@ class BaseNetworkEngine:
         )
         return tuner
 
-    def load_tuner(self, path: str) -> Tuner:
+    def load_tuner(self, path: Path) -> Tuner:
         """Extracts the project information from the project name
 
         Args:
@@ -189,7 +191,7 @@ class BaseNetworkEngine:
             tuple: project information
         """
         # Extract all the tuner data from the project name
-        project_name = os.path.basename(path)
+        project_name = path.name
         project_info = project_name.split("-")
         tuner_type = project_info[2]
         max_epochs = int(project_info[3])
@@ -208,7 +210,7 @@ class BaseNetworkEngine:
 
         return tuner
 
-    def get_most_recent_tuner(self, folder_path: str) -> Tuner:
+    def get_most_recent_tuner(self, folder_path: Path) -> Tuner:
         """Retrieves the most recent tuner from the specified directory
 
         Args:
@@ -221,15 +223,11 @@ class BaseNetworkEngine:
         Returns:
             Tuner: Keras tuner object
         """
-        # Ensure the folder path is a string
-        if not isinstance(folder_path, str):
-            raise ValueError("folder_path must be a string")
-
         path = get_most_recent(folder_path)
 
         return self.load_tuner(path)
 
-    def retrieve_tuner(self, path: str = "") -> Tuner:
+    def retrieve_tuner(self, path: Union[os.PathLike, str] = "") -> Tuner:
         """Retrieves a tuner from the specified path or the most recent tuner from the
         tuner directory
 
@@ -239,8 +237,9 @@ class BaseNetworkEngine:
         Returns:
             Tuner: Keras tuner object
         """
+        path = Path(path)
         if path == "":
-            tuner = self.get_most_recent_tuner("tuner")
+            tuner = self.get_most_recent_tuner(Path("tuner"))
         else:
             tuner = self.load_tuner(path)
         return tuner
