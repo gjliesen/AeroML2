@@ -2,4 +2,4 @@ pyproj
 navpy
 plotly
 keras-tuner
-keras==3.0.5
+keras==2.15.0
