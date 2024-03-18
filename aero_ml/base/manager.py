@@ -114,12 +114,14 @@ class BaseManager:
             )
         )
 
-    def retrieve_tuner(self, path: str = ""):
+    def retrieve_tuner(self, path: Union[os.PathLike, str] = ""):
         """wrapper for the network engine retrieve_tuner method
 
         Args:
             path (str, optional): Path to desired tuner. Defaults to "".
         """
+        if path == "":
+            path = self.tuner_dir
         self.tuner = self.network_engine.retrieve_tuner(path)
 
     def tune_network(self, epochs: int = 4, tuner_type: str = "hyperband"):
