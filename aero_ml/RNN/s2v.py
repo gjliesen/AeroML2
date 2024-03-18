@@ -283,17 +283,16 @@ class S2VNetworkEngine(BaseNetworkEngine):
             hp_kernel = hp.Choice("dense_kernel", values=self.kernel_inits)
             hp_bias = hp.Choice("dense_bias", values=self.bias_inits)
             with scope():
-                keras.backend.clear_session()
+                # keras.backend.clear_session()
                 # Intialize model
                 model = keras.models.Sequential()
 
                 # add input layer
-                input_shape = [None, self.input_dim]
                 model.add(
                     keras.layers.LSTM(
                         units=hp_units,
                         return_sequences=True,
-                        input_shape=input_shape,
+                        input_shape=(None, self.input_dim),
                         activation=hp_act,
                         kernel_initializer=hp_kernel,
                         bias_initializer=hp_bias,
