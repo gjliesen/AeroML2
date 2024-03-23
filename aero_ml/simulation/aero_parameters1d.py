@@ -40,7 +40,7 @@ def eye_mat(mat1, mat2, mat3, mat4):
 # logging.basicConfig(level=logging.DEBUG)
 
 
-@jitclass(surface_two_spec1d)
+@jitclass(surface_two_spec1d)  # type: ignore
 class AeroSurface:
     def __init__(self, arr, n_vec, dx_vec, dx_mat):
         self.surf_arr = arr

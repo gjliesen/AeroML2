@@ -1,13 +1,13 @@
 {
- "config_name": "loop_default",
- "config_dir": "C:\\Users\\gjlie\\Desktop\\AircraftSimulationNeuralNet\\aero_ml\\DNN\\configs",
+ "config_name": "s2v_default",
+ "config_dir": "c:\\Users\\gjlie\\Desktop\\AircraftSimulationNeuralNet\\aero_ml\\RNN\\configs",
  "input_dim": 13,
  "output_dim": 13,
  "optimizer": "adam",
  "metrics": [
   "mse"
  ],
- "loss_fn_str": "rmse",
+ "loss_fn_str": "mse",
  "input_features": [
   "Lat",
   "Lon",
@@ -96,10 +96,10 @@
   12,
   12
  ],
- "run_time": 10,
+ "run_time": 1,
  "frequency": 0.01,
- "iterations": 20000,
- "length": 20000000.0,
+ "iterations": 30000,
+ "length": 3000000.0,
  "test_cases": 30,
  "constraints": {
   "lat": [

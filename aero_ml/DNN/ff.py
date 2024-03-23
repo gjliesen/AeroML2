@@ -1,17 +1,42 @@
+# pyright: reportAttributeAccessIssue=false
 import typing
+from typing import Union
 import os
 import tensorflow as tf
 from tensorflow import keras
-from aero_ml.defaults import Defaults
-from aero_ml.base import (
-    BaseDataEngine,
-    BaseNetworkEngine,
-    BaseTestEngine,
-    BaseConfigurator,
-)
+from pathlib import Path
+
+# from aero_ml.defaults import Defaults
+from aero_ml.base.manager import BaseManager
+from aero_ml.base.data_engine import BaseDataEngine
+from aero_ml.base.network_engine import BaseNetworkEngine
+from aero_ml.base.test_engine import BaseTestEngine
+from aero_ml.base.configurator import BaseConfigurator
 
 
-class DataEngine(BaseDataEngine):
+class FFConfigurator(BaseConfigurator):
+    config: dict
+
+    def __init__(self, config_path: os.PathLike, config_name: str = ""):
+        """Configurator for the FF network, sets up default parameter config for network
+        but the user can create new ones by calling the methods
+
+        Args:
+            config_dir (str): directory to store the configuration file
+            config_name (str): name of the configuration file
+        """
+        super().__init__(config_path, config_name)
+
+
+config_name = "s2v_default"
+ff_default_config_path = Path(__file__).parent / "configs" / f"{config_name}.json"
+
+if not ff_default_config_path.exists():
+    cfg = FFConfigurator(ff_default_config_path)
+    cfg.generate()
+
+
+class FFDataEngine(BaseDataEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -41,6 +66,7 @@ class DataEngine(BaseDataEngine):
         """
         # Create lists of runs to vertical stack later
         states = self.sim.state_vec
+        assert states is not None
         self.cur_input = self.concatInputs(states[0]).squeeze()
         self.cur_output = states[1:]
         if self.shuffle:
@@ -97,7 +123,7 @@ class DataEngine(BaseDataEngine):
         return normalized_example
 
 
-class NetworkEngine(BaseNetworkEngine):
+class FFNetworkEngine(BaseNetworkEngine):
     def __init__(self, config: dict):
         super().__init__(config)
 
@@ -182,36 +208,21 @@ class NetworkEngine(BaseNetworkEngine):
         return hypermodel_fn
 
 
-class TestEngine(BaseTestEngine):
-    def __init__(self, config, data_engine):
-        super().__init__(config, data_engine)
+class FFTestEngine(BaseTestEngine):
+    def __init__(self, config, data_engine, att_mode: str = "euler"):
+        super().__init__(config, data_engine, att_mode)
 
 
-class Configurator(BaseConfigurator):
-    config: dict
-
-    def __init__(self, config_name: str, config_dir: str = "configs"):
-        """Configurator for the FF network, sets up default parameter config for network
-        but the user can create new ones by calling the methods
-
-        Args:
-            config_dir (str): directory to store the configuration file
-            config_name (str): name of the configuration file
-        """
-        super().__init__(config_dir, config_name)
-
-
-def generate_config(config_name: str, config_dir: str):
-    config = Configurator(config_name, config_dir)
-    config.general_network()
-    config.general_data()
-    config.generation_data()
-    config.tuning_data()
-    config.write()
-
-
-config_name = "ff_default"
-dirname = os.path.join(os.path.dirname(os.path.realpath(__file__)), "configs")
-default_config_path = os.path.join(dirname, f"{config_name}.json")
-if not os.path.isfile(default_config_path):
-    generate_config(config_name, dirname)
+class FFManager(BaseManager):
+    def __init__(
+        self,
+        config_path: Union[os.PathLike, str],
+        model_dir: Union[os.PathLike, str] = "models",
+        checkpoint_dir: Union[os.PathLike, str] = "checkpoints",
+        tuner_dir: Union[os.PathLike, str] = "tuners",
+        att_mode: str = "euler",
+    ):
+        super().__init__(config_path, model_dir, checkpoint_dir, tuner_dir, att_mode)
+        self.data_engine = FFDataEngine(self.config)
+        self.network_engine = FFNetworkEngine(self.config)
+        self.test_engine = FFTestEngine(self.config, self.data_engine, att_mode)
